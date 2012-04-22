@@ -51,7 +51,7 @@ peel(args::Tuple) = map(peel, args)
 peel(args...) = peel(args)
 
 #uinds = gensym(32) # just some number of dims that should be enough
-uinds = (:i, :j, :k, :l)
+uinds = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
 
 # -- InputArray ---------------------------------------------------------------
 
@@ -72,7 +72,7 @@ peel(A::InputArray) = expr(:ref, A.name, uinds[1:ndims(A)]...)
 # -- OuputArray ---------------------------------------------------------------
 
 #type OutputArray{T,N} <: PartialArray{T,N}
-type OutputArray{T,N} # don't want outputs as inputs
+type OutputArray{T,N}  <: AbstractArray{T,N} # don't want outputs as inputs
     name::Symbol
     shape::(Dimension...)
 
@@ -85,6 +85,14 @@ end
 ## Factory ##
 output_array(name, T, shape) = OutputArray{T,length(shape)}(name, shape)
 output_array(name, T, shape...) = output_array(name, T, shape)
+
+
+function assign{T,N}(dest::OutputArray{T,N}, A::PartialArray{T,N})
+    ref = expr(:ref, dest.name, uinds[1:ndims(dest)]...) 
+    a = peel(A)
+    write_op = :( ($ref) = $a )
+    append!(dest.writes, {write_op})
+end
 
 
 # -- KernelArray --------------------------------------------------------------
@@ -114,6 +122,34 @@ function .*{TA,TB}(A::PartialArray{TA}, B::PartialArray{TB})
 end
 
 
+# -- Test kernel construction -------------------------------------------------
+
+function make_kernel_body(dest, sources)
+    body = expr(:block, dest.writes)
+    for k = 1:ndims(dest)
+        i = uinds[k]
+        body = :(
+            for ($i) = 1:size(($dest.name), $k)
+                $body
+            end
+        )
+    end
+    body
+end
+
+function make_kernel_function(dest, sources)
+    body = make_kernel_body(dest, sources)
+    args = append((dest.name,), map(arg->arg.name, sources)) 
+    args = expr(:tuple, {args...})
+    f = expr(:(->), args, body)
+end
+
+function make_kernel(dest, sources)
+    eval(make_kernel_function(dest, sources))
+end
+
+
+
 # -- Test code ----------------------------------------------------------------
 
 
@@ -127,3 +163,14 @@ B = input_array(:B, VType, (n,m))
 dest = output_array(:dest, VType, (n,m))
 
 C = A.*B
+dest[] = C
+
+
+f = make_kernel(dest, (A, B))
+
+
+(ni, mi) = (2, 3)
+Ai = [1 2 3; 4 5 6]
+Bi = [1 0 1; 0 1 0]
+desti = Array(VType, (ni,mi))
+f(desti, Ai, Bi)
