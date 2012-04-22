@@ -1,56 +1,96 @@
 
+# -- Context --------------------------------------------------------------------
 
-flatten(ex::Any, return_symbol::Bool) = ex
-function flatten(ex::Expr, return_symbol::Bool)
+type Context
+    symbols::HashTable{Symbol,Any}
+    inputs::Vector
 
-# Returns the value of an Expr as a symbol
+    nodes::Vector
+
+    Context() = new(HashTable{Symbol,Any}(), {}, {})
+end
+
+emit(context::Context, ex) = append!(context.nodes, {ex})
+
+# delegate to HashTable
+has(context::Context, name::Symbol) = has(context.symbols, name)
+ref(context::Context, name::Symbol) = ref(context.symbols, name)
+assign(context::Context, val, name::Symbol) = assign(context.symbols, val, name)
+
+function create_input(context::Context, name::Symbol)
+    input_name = name 
+    append!(context.inputs, {input_name})  # list the new input
+    context[name] = input_name             # and add it to the symbol table
+    return input_name
+end
+
+
+# -- New flatten ----------------------------------------------------------------
+
+# flatten(context, ex)
 #
-# Emits instruction exprs of the forms
-# dest = y
-# dest[inds] = y
-# where y and inds[k] are symbol/primitive op
-# Primitive op = op with symbol-only arguments
+# Returns the value of an Expr as a symbol
+# Updates context with symbol bindings
+# Emits instructions to context:
+#   * assignments dest = op(args...)
+#   * indexed assignment dest[inds...] = source
+# where dest, source, and each element of args and inds are terminals.
 
+flatten(context, ex::Any) = ex
+
+function flatten(context, sym::Symbol)
+    if has(context, sym)
+        return context[sym]         # return current symbol value
+    else
+        return create_input(context, sym)  # create new input named sym
+    end
+end
+
+function flatten(context, ex::Expr)
     if ex.head == :block
         value = nothing
         for subex in ex.args
-            value = flatten(subex, return_symbol)
+            value = flatten(context, subex)
         end
         return value
     elseif ex.head == :line # ignore line numbers
         return nothing # CONSIDER: could this shadow the last actual value?
     elseif ex.head == :(=)  # assignment
-        lhs = flatten(ex.args[1], false)
-        rhs = flatten(ex.args[2], false)
-        produce(expr(:(=), lhs, rhs))
-        return rhs # or lhs?
-    elseif (ex.head == :call) || (ex.head == :ref)
-        #args = map(flatten, ex.args, true)
-
-        nargs = length(ex.args)
-        args = cell(nargs)
-        for k=1:nargs;   args[k] = flatten(ex.args[k], true);   end
-
-        result = expr(ex.head, args...) # flattened invocation
-        if return_symbol # store the result to an intermediate?
-            intermediate = gensym() 
-            produce(expr(:(=), intermediate, result))
-            result = intermediate
+        lhs = ex.args[1]
+        rhs = flatten(context, ex.args[2])
+        
+        if isa(lhs, Symbol)
+            # straight assignment: just update symbol table
+            context[lhs] = rhs
+            return rhs
+        elseif (isa(lhs, Expr)) && (lhs.head == :ref)
+            # indexed assignment
+            lhs = flatten_invocation(context, lhs)
+            emit(context, expr(:(=), lhs, rhs))
+            return rhs
         end
-        return result
+        error("Unimplemented: lhs = ($lhs)")
+    elseif (ex.head == :call) || (ex.head == :ref)
+        node = gensym() 
+        emit(context, expr(:(=), node, flatten_invocation(context, ex)))
+        return node
     else
-        error("Unimplemented expr type: head = :$(ex.head)")
-    end
+        # error("Unimplemented expr type: head = :$(ex.head)")
+        error("Unimplemented: ex = :$(ex)")
+    end    
 end
+
+function flatten_invocation(context, ex::Expr)
+    args = {flatten(context, arg) | arg in ex.args}
+    expr(ex.head, args...) # flattened invocation
+end
+
+
+
+
 
 # -- Test code ----------------------------------------------------------------
 
-function print_flattened(ex)
-    exprs = @task flatten(ex, true)
-    for ex in exprs
-        println(ex)
-    end
-end
 
 
 code = quote
