@@ -1,9 +1,13 @@
 load("partialarray.jl")
 load("staged.jl")
 
+
+quote_tuple(t) = expr(:tuple, {t...})
+quote_expr(ex) = expr(:quote, ex)
+
 # -- Test kernel construction -------------------------------------------------
 
-function make_kernel_body(dest, sources)
+function make_kernel_parts(dest, sources)
     body = expr(:block, dest.writes)
     for k = 1:ndims(dest)
         i = uinds[k]
@@ -13,18 +17,33 @@ function make_kernel_body(dest, sources)
             end
         )
     end
-    body
+
+    args = append((dest.name,), map(arg->arg.name, sources)) 
+    
+    (args, body)
 end
 
 function make_kernel_function(dest, sources)
-    body = make_kernel_body(dest, sources)
-    args = append((dest.name,), map(arg->arg.name, sources)) 
-    args = expr(:tuple, {args...})
-    f = expr(:(->), args, body)
+    args, body = make_kernel_parts(dest, sources)
+    f = expr(:(->), quote_tuple(args), body)
 end
 
 function make_kernel(dest, sources)
     eval(make_kernel_function(dest, sources))
+end
+function make_staged_kernel(dest, sources)
+    eval(make_staged_kernel_function(dest, sources))
+end
+
+function make_staged_kernel_function(dest, sources)
+    args, body = make_kernel_parts(dest, sources)
+    name = gensym("kernel")
+    head = expr(:call, name, args...)
+
+#    f = expr(:function, head, body)
+    f = expr(:function, head, quote_expr(body))
+    f = :(@staged $f)
+    :($f; $name)
 end
 
 
