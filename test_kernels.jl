@@ -13,3 +13,44 @@ D = [ 0  0  0
 end
 
 println("A =\n$A")
+
+
+function timeit(n::Int)
+    A = Array(Float, n, n)
+    temp = Array(Float, n, n)
+    B = rand(n, n)
+    C = rand(n, n)
+    D = rand(n, n)
+    
+    # Array manipulation
+    tic()
+    B.*C + D
+    ta = toc()
+
+    # For loops
+    tic()
+    for j=1:n,i=1:n
+        temp[i,j] = B[i,j].*C[i,j]
+    end
+    for j=1:n,i=1:n
+        A[i,j] = temp[i,j] + D[i,j]
+    end
+    tfor = toc()
+    
+    # Manual kernel
+    tic()
+    for j=1:n,i=1:n
+        A[i,j] = B[i,j].*C[i,j] + D[i,j]
+    end
+    tmk = toc()
+
+    # Kernel
+    tic()
+    @kernel 2 begin
+        A[] = B.*C + D
+    end
+    tk = toc()
+    (ta, tmk, tfor, tk)
+end
+
+timeit(500)
