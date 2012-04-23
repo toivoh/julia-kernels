@@ -71,15 +71,15 @@ end
 
 flatten(c::Context, exprs::Vector) = { flatten(c, ex) | ex in exprs }
 
-function wrap_input(c::Context, name) 
-    entry = c.symbols[name]
+function wrap_input(context::Context, name) 
+    entry = context.symbols[name]
     if entry.wrapped == nothing
         entry.wrapped = flatten(context, expr(:call, :readinput, name))
     end
     return entry.wrapped
 end
 
-flatten(c::Context, ex::Any) = ex   # literal
+flatten(::Context, ex::Any) = ex   # literal
 function flatten(context::Context, name::Symbol)
     if has(context.symbols, name)
         entry = context.symbols[name]
