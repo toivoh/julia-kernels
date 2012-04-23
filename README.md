@@ -26,7 +26,8 @@ if `A, B, C, D` are 2d `Arrays` of the same size. One difference is that the int
 The first parameter to `@kernel` (`2` in this example)
 specifies the number of dimensions -- it should go away soon!
 
-The idea is to implement a subset of Julia which can be easily converted into a kernel. (Though the syntax is so far slightly different, eg `dest[]` instead of `dest[:,:]`)
+The idea is to implement a subset of Julia which can be easily converted into a kernel. (Though the syntax is so far slightly different, eg `dest[]` instead of `dest[:,:]`)   
+The front end that produces raw kernel code from the argument to `@kernel` might conceivable also be useful for creating raw kernel code from other kinds of sources, which can then be handed to a back end.
 
 Example: `test_kernels.jl`
 
