@@ -169,3 +169,17 @@ function execute_assignment(context::Context, lhs::Expr, rhs::Symbol)
     rhs
 end
 
+
+# == Some printing ============================================================
+
+function print_code(flat_code::Vector) 
+    println("code:")
+    for ex in flat_code; println("\t", ex); end
+end
+function print_context(context::Context) 
+    println("inputs  = $(context.inputs)")
+    println("outputs = $(context.outputs)")
+    
+    println("symbols at end:")
+    for (k, v) in context.symbols; println("\t$k = $v"); end
+end

@@ -14,14 +14,6 @@ context = Context(symbols, receive)
 
 value = flatten(context, code)
 
-println("code:")
-for ex in flat_code; println("\t", ex); end
-
+print_code(flat_code)
 println("value = $value")
-println("inputs  = $(context.inputs)")
-println("outputs = $(context.outputs)")
-
-println("symbols at end:")
-for (k, v) in context.symbols
-    println("\t$k = $v")
-end
+print_context(context)
