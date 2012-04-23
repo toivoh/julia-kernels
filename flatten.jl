@@ -165,7 +165,11 @@ function execute_assignment(context::Context, lhs::Symbol, rhs::Symbol)
 end
 function execute_assignment(context::Context, lhs::Expr, rhs::Symbol)
     # indexed assignment to output
-    emit(context, expr(:(=), lhs, rhs))
+    if length(lhs.args) == 1
+        emit(context, expr(:call, :writeoutput, lhs.args[1], rhs))
+    else
+        emit(context, expr(:(=), lhs, rhs))
+    end
     rhs
 end
 

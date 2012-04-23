@@ -5,6 +5,7 @@ load("flatten.jl")
 code = quote
     A = B.*C + D[j,i]
     dest[2i, 2j] = A
+    dest2[] = 2A
 end
 
 symbols = HashTable{Symbol,SymEntry}()
