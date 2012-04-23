@@ -105,6 +105,17 @@ code = quote
     dest[2i, 2j] = A
 end
 
+c = Context()
+value = flatten(c, code)
+
+println("arguments = $(c.arguments)")
+println("code:")
+for ex in c.code; println("\t", ex); end
+println("value = $value")
+
+
+
+
 # flatten
 # single-assign
 # process array form
