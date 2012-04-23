@@ -22,13 +22,11 @@ function timeit(n::Int)
     C = rand(n, n)
     D = rand(n, n)
     
-    # Array manipulation
-    tic()
+    print("Array routines:     "); tic()
     B.*C + D
     ta = toc()
 
-    # For loops
-    tic()
+    print("For loops:          "); tic()
     for j=1:n,i=1:n
         temp[i,j] = B[i,j].*C[i,j]
     end
@@ -37,15 +35,13 @@ function timeit(n::Int)
     end
     tfor = toc()
     
-    # Manual kernel
-    tic()
+    print("Handwritten kernel: "); tic()
     for j=1:n,i=1:n
         A[i,j] = B[i,j].*C[i,j] + D[i,j]
     end
     tmk = toc()
 
-    # Kernel
-    tic()
+    print("Kernel:             "); tic()
     @kernel 2 begin
         A[] = B.*C + D
     end
@@ -53,4 +49,4 @@ function timeit(n::Int)
     (ta, tmk, tfor, tk)
 end
 
-timeit(500)
+timeit(1000)
