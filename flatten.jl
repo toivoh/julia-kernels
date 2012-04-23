@@ -10,27 +10,35 @@ end
 
 type Context
     symbols::HashTable{Symbol,SymEntry}  # current symbol bindings    
-    emit_function::Function
-    props::HashTable{Symbol,Any}
+    props::HashTable{Symbol,Any}         # context properties
+    emit_function::Function              # sink for emitted instructions
 
-    function Context(symbols::HashTable, emit, props::HashTable{Symbol}) 
-        # make sure props can hold any value without converting it
-        props = convert(HashTable{Symbol,Any}, props)        
+    function Context(symbols::HashTable{Symbol,SymEntry}, props, emit) 
+        # copy props (required!) and make sure it's the right type
+        props = makedict(Symbol,Any,props)        
 
         # convenience access through c.lhs, defalt = false
-        lhs = setdefault(props, :lhs, false) 
+        lhs = setdefault(props, :lhs, false)::Bool 
 
-        new(symbols, emit, props, lhs)
+        new(symbols, props, emit, lhs)
     end
-
-    lhs::Bool
+    
+    lhs::Bool  # convenience access to props[:lhs]
 end
+Context(c::Context) = Context(c.symbols, c.props, c.emit_function)
 
 function child(c::Context, new_props) 
-    props = copydict(c.props)
-    props[:lhs] = false
-    props.update(new_props)
-    Context(c.symbols, c.emit_function, props)
+# Create a child context from c:
+#     Copy c
+#     Replace properties given by makedict{Symbol}{Any}(new_props)
+#     Set lhs=false if not explicitly given
+
+    # copy c
+    c = Context(c) 
+    # modifies props: only at creation!
+    c.props[:lhs] = false
+    c.props.update(new_props)
+    c
 end
 child(c::Context) = child(c::Context, ())
 
@@ -89,3 +97,8 @@ function flatten(context, ex::Expr)
         end
     end    
 end
+
+
+st=HashTable{Symbol,SymEntry}()
+emit=(ex)->()
+props=(@dict lhs=true)
