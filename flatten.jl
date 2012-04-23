@@ -2,8 +2,11 @@
 # == Context ==================================================================
 
 type SymEntry
-    value::Any
+    value
     kind::Symbol
+    wrapped
+
+    SymEntry(value, kind::Symbol) = new(value, kind, nothing)
 end
 
 type Context
@@ -68,7 +71,13 @@ end
 
 flatten(c::Context, exprs::Vector) = { flatten(c, ex) | ex in exprs }
 
-wrap_input(c::Context, name) = flatten(context, expr(:call, :readinput, name))
+function wrap_input(c::Context, name) 
+    entry = c.symbols[name]
+    if entry.wrapped == nothing
+        entry.wrapped = flatten(context, expr(:call, :readinput, name))
+    end
+    return entry.wrapped
+end
 
 flatten(c::Context, ex::Any) = ex   # literal
 function flatten(context::Context, name::Symbol)
