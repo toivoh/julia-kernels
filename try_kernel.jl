@@ -28,8 +28,9 @@ indvars = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
 
 nd = 2
 
-fdef = wrap_kernel(context, flat_code, indvars[1:nd])
-eval(fdef)
+staged = true
+fdef = wrap_kernel(context, flat_code, indvars[1:nd], staged)
+kernel = eval(fdef)
 
 
 A = Array(Float, (2,3))
