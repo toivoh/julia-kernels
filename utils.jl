@@ -12,10 +12,12 @@ function update(dest::Associative, source)
     end
 end
 
-function makedict{K,V}(::Type{K}, ::Type{V}, source)
+function makedict{K,V}(::Type{K}, ::Type{V}, sources...)
 # make a HashTable{K,V} out of an Associative/(key,value) iterable
-    d = HashTable{K,V}(length(source))
-    update(d, source)
+    d = HashTable{K,V}()
+    for source in sources
+        update(d, source)
+    end
     d
 end
 
