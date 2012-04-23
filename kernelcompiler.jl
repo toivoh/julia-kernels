@@ -1,4 +1,6 @@
 
+is_expr(head, ex) = (isa(ex, Expr) && ex.head == head)
+
 # -- Context --------------------------------------------------------------------
 
 type Context
@@ -16,6 +18,9 @@ emit(context::Context, ex) = append!(context.code, {ex})
 has(context::Context, name::Symbol) = has(context.symbols, name)
 ref(context::Context, name::Symbol) = ref(context.symbols, name)
 assign(context::Context, val, name::Symbol) = assign(context.symbols, val, name)
+
+# TODO: avoid linear search
+is_argument(context::Context, name) = contains(context.arguments, name)
 
 function create_argument(context::Context, name::Symbol)
     arg_name = name 
@@ -86,14 +91,31 @@ function flatten_invocation(context, ex::Expr)
     if ex.head == :call
         # Don't flatten operation: avoid making arguments of +, sin, ...
         # Don't need non-terminal ops?
-        return expr(ex.head, ex.args[1], flatten(context, ex.args[2:end])...)
+        ex = expr(ex.head, ex.args[1], flatten(context, ex.args[2:end])...)
     else
-        return expr(ex.head, flatten(context, ex.args)...)
+        ex = expr(ex.head, flatten(context, ex.args)...)
     end
+    return expand_invocation(context, ex)
 end
 
 
+# -- More specific parts ------------------------------------------------------
 
+function expand_invocation(context::Context, ex)
+    if is_expr(:call, ex) && (ex.args[1] == :read_input); return ex; end
+
+    scalar_args = ex.args[2:end]
+    scalar_args = { expand_scalar_arg(context, arg) | arg in scalar_args }
+    return expr(ex.head, ex.args[1], scalar_args...)
+end
+
+function expand_scalar_arg(context::Context, arg)
+    if is_argument(context, arg)
+        return flatten(context, expr(:call, :read_input, arg)) 
+    else
+        return arg
+    end
+end
 
 
 # -- Test code ----------------------------------------------------------------
