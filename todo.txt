@@ -2,7 +2,6 @@
 
 Add / implement
  o use of explicit index vars
+ o broadcasting
  o transpose --- swapping of index vars?
-
-
 
