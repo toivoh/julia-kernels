@@ -1,11 +1,8 @@
 
 
 Add / implement
- o inline kernel transformation
+ o use of explicit index vars
  o transpose --- swapping of index vars?
 
 
-Todo:
- o Avoid evaluating the same expression twice in a kernel
- o Integrate partial and partialarray?
 
