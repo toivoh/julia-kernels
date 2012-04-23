@@ -7,8 +7,6 @@ quote_tuple(t) = expr(:tuple, {t...})
 
 function wrap_kernel_body(flat_code::Vector, indvars)
     Xref = expr(:ref, :X, indvars...)
-#    prologue = {:( readinput(X) = $Xref ),
-#                :( writeoutput(X,y) = $Xref=y )}
     prologue = { :(indvars=$(quote_tuple(indvars))) }
 
     body = expr(:block, append(prologue, flat_code))
