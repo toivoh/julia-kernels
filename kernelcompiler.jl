@@ -1,7 +1,7 @@
 
 is_expr(head, ex) = (isa(ex, Expr) && ex.head == head)
 
-# -- Context --------------------------------------------------------------------
+# -- Context ------------------------------------------------------------------
 
 type Context
     symbols::HashTable{Symbol,Any}  # current symbol bindings
@@ -30,7 +30,7 @@ function create_argument(context::Context, name::Symbol)
 end
 
 
-# -- New flatten ----------------------------------------------------------------
+# -- New flatten --------------------------------------------------------------
 
 # flatten(context, ex)
 #
