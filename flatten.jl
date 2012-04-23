@@ -74,7 +74,7 @@ flatten(c::Context, exprs::Vector) = { flatten(c, ex) | ex in exprs }
 function wrap_input(context::Context, name) 
     entry = context.symbols[name]
     if entry.wrapped == nothing
-        entry.wrapped = flatten(context, expr(:call, :readinput, name))
+        entry.wrapped = expr(:ref, name, expr(:(...), :indvars))
     end
     return entry.wrapped
 end
@@ -126,11 +126,7 @@ end
 function flatten_callref(context::Context, ex::Expr)
     if ex.head == :call
         op = ex.args[1]
-        if op == :readinput
-            args = {expect_argument(:input, context, ex.args[2])}
-        else
-            args = flatten(context, ex.args[2:end])
-        end
+        args = flatten(context, ex.args[2:end])
         return expr(ex.head, op, args...)
     elseif ex.head == :ref
         input = expect_argument(:input, context, ex.args[1])
@@ -166,10 +162,9 @@ end
 function execute_assignment(context::Context, lhs::Expr, rhs::Symbol)
     # indexed assignment to output
     if length(lhs.args) == 1
-        emit(context, expr(:call, :writeoutput, lhs.args[1], rhs))
-    else
-        emit(context, expr(:(=), lhs, rhs))
+        lhs = expr(:ref, lhs.args[1], expr(:(...), :indvars))
     end
+    emit(context, expr(:(=), lhs, rhs))
     rhs
 end
 

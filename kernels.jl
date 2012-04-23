@@ -2,10 +2,14 @@
 load("flatten.jl")
 load("staged.jl")
 
+quote_expr(ex) = expr(:quote, ex)
+quote_tuple(t) = expr(:tuple, {t...})
+
 function wrap_kernel_body(flat_code::Vector, indvars)
     Xref = expr(:ref, :X, indvars...)
-    prologue = {:( readinput(X) = $Xref ),
-                :( writeoutput(X,y) = $Xref=y )}
+#    prologue = {:( readinput(X) = $Xref ),
+#                :( writeoutput(X,y) = $Xref=y )}
+    prologue = { :(indvars=$(quote_tuple(indvars))) }
 
     body = expr(:block, append(prologue, flat_code))
     for k = 1:length(indvars)
@@ -14,8 +18,6 @@ function wrap_kernel_body(flat_code::Vector, indvars)
     end
     body
 end
-
-quote_expr(ex) = expr(:quote, ex)
 
 function wrap_kernel(context::Context, flat_code::Vector, indvars, 
                      staged::Bool)
