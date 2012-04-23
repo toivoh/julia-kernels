@@ -1,32 +1,40 @@
 
 function setdefault(d::Associative, key, value)
+# set d[key]=value if not present; return d[key]
     if !has(d, key);  d[key] = value;  end
     return d[key]
 end
 
 function update(dest::Associative, source)
+# add entries to dest, overwriting existing ones
     for (key, value) in source
         dest[key] = value
     end
 end
 
-function convert{K,V}(::Type{HashTable{K,V}}, d::Associative)
-    c = HashTable{K,V}(length(d))
-    update(c, d)
-    c
+function makedict{K,V}(::Type{K}, ::Type{V}, source)
+# make a HashTable{K,V} out of an Associative/(key,value) iterable
+    d = HashTable{K,V}(length(source))
+    update(d, source)
+    d
 end
 
-# copies entries but does not deep copy the keys/values
-function copydict{K,V}(d::HashTable{K,V})
-    c = HashTable{K,V}(length(d))
-    update(c, d)
-    c
-end
+# copy HashTable entries, but don't deep copy the keys/values
+copydict{K,V}(d::HashTable{K,V}) = makedict(K,V,d)
+
+#convert{K,V}(::Type{HashTable{K,V}}, d::Associative) = copydict{K,V}(d)
 
 
 quote_sym(sym::Symbol) = expr(:quote, sym)
  
 macro dict(args...)   
+# Create a HashTable{Symbol}
+# Usage:
+#     d = @dict x=1 s="hello"
+# is equivalent to 
+#     d = {:x => 1, :s => "hello"}
+# except that @dict throws an error on duplicate keys
+
     names = Set{Symbol}()
     toentry(arg) = error("@dict: malformed argument $arg")
     function toentry(ex::Expr)
