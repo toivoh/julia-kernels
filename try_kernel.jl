@@ -28,13 +28,7 @@ indvars = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
 
 nd = 2
 
-prologue = :(
-             readinput(X) = X[_i,_j];
-             writeoutput(X,y) = X[_i,_j]=y
-             )
-
-fcode = append(prologue.args, flat_code)
-body = wrap_kernel_body(fcode, indvars[1:nd])
+body = wrap_kernel_body(flat_code, indvars[1:nd])
 
 @eval function kernel(A::Array, B::Array, C::Array, D::Array)
     shape = size(A)
@@ -49,3 +43,5 @@ C = [1 0 1
 D = [ 0  0  0
      10 10 10]
 kernel(A, B, C, D)
+
+println("A =\n$A")
