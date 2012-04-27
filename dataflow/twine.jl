@@ -99,15 +99,16 @@ type Context
     symbols::Dict{Symbol,Node}  # current symbol bindings    
 
     function Context(symbols::Dict{Symbol,Node}) 
-        new(symbols, Symbol[], Symbol[], Symbol[])
+        new(symbols, Symbol[], Symbol[], Symbol[], Symbol[])
     end
 
     inputs ::Vector{Symbol}
     outputs::Vector{Symbol}
+    locals ::Vector{Symbol}
     calls  ::Vector{Symbol}
 end
 
-function create_external(context::Context, name::Symbol, kind::Symbol)
+function create_symnode(context::Context, name::Symbol, kind::Symbol)
     if has(context.symbols, name)
         error("$name already exists in symbol table")
     end
@@ -115,8 +116,9 @@ function create_external(context::Context, name::Symbol, kind::Symbol)
 
     if     kind == :input;   append!(context.inputs,  [name])
     elseif kind == :output;  append!(context.outputs, [name])
+    elseif kind == :local;   append!(context.locals,  [name])
     elseif kind == :call;    append!(context.calls,   [name])
-    else;                    error("unknown kind of external: :$kind");  
+    else;                    error("unknown kind of symnode: :$kind");  
     end
 
     return node
@@ -136,7 +138,7 @@ end
 
 twine(::Context, ex::Any) = litnode(ex)   # literal
 function twine(context::Context, name::Symbol)
-    @setdefault(context.symbols[name], create_external(context, name, :input))
+    @setdefault(context.symbols[name], create_symnode(context, name, :input))
 end
 function twine(context::Context, ex::Expr)
     if ex.head == :line # ignore line numbers
@@ -154,7 +156,7 @@ function twine(context::Context, ex::Expr)
     elseif (ex.head == :call)
         fname = ex.args[1]
         op = @setdefault(context.symbols[fname],
-                         create_external(context, fname, :call))
+                         create_symnode(context, fname, :call))
         # println(ex.args[2:end])
         args = twine(context, ex.args[2:end])
         # println(args)
@@ -177,14 +179,14 @@ end
 
 function twine_lhs(context::Context, name::Symbol)
     @setdefault(context.symbols[name],
-                create_external(context, name, :output))
+                create_symnode(context, name, :local))
 end
 function twine_lhs(context::Context, ex::Expr)
     # assign[]
     expect_expr(ex, :ref)
     oname = ex.args[1]
     output = @setdefault(context.symbols[oname],
-                         create_external(context, oname, :output))
+                         create_symnode(context, oname, :output))
     inds = twine(context, ex.args[2:end])
     refnode(output, inds)
 end
@@ -217,6 +219,7 @@ end
 function print_context(context::Context) 
     println("inputs  = $(context.inputs)")
     println("outputs = $(context.outputs)")
+    println("locals  = $(context.locals)")
     println("calls   = $(context.calls)")
     
     println("symbols at end:")
