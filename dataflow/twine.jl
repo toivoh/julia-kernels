@@ -31,66 +31,66 @@ end
 
 # == Node =====================================================================
 
-abstract Operation
-abstract Terminal <: Operation
-abstract Invocation <: Operation
+abstract Expression
+abstract Terminal <: Expression
+abstract Operation <: Expression
 
-type Node{T<:Operation}
-    op::T
+type Node{T<:Expression}
+    val::T
 end
 
 # -- terminals ----------------------------------------------------------------
 
-type EmptyOp <: Terminal
+type EmptyEx <: Terminal
 end
-type LiteralOp <: Terminal
+type LiteralEx <: Terminal
     value
 end
-type SymbolOp <: Terminal
+type SymbolEx <: Terminal
     name::Symbol
     kind::Symbol
 
-    SymbolOp(name::Symbol, kind::Symbol) = new(name, kind)
+    SymbolEx(name::Symbol, kind::Symbol) = new(name, kind)
 end
 
 typealias TerinalNode Node{Terminal}
-typealias EmptyNode Node{EmptyOp}
-typealias LiteralNode Node{LiteralOp}
-typealias SymNode Node{SymbolOp}
+typealias EmptyNode Node{EmptyEx}
+typealias LiteralNode Node{LiteralEx}
+typealias SymNode Node{SymbolEx}
 
-emptynode() = Node(EmptyOp)
-litnode(l) = Node(LiteralOp(l))
-symnode(name, kind) = Node(SymbolOp(name, kind))
+emptynode() = Node(EmptyEx())
+litnode(l) = Node(LiteralEx(l))
+symnode(name, kind) = Node(SymbolEx(name, kind))
 
 # -- invocations --------------------------------------------------------------
 
-type CallOp <: Invocation
+type CallEx <: Operation
     op::Node
     args::Vector{Node}
 end
-type RefOp <: Invocation
+type RefEx <: Operation
     A::Node
     inds::Vector{Node}
 end
 
-typealias InvocationNode Node{Invocation}
-typealias CallNode Node{CallOp}
-typealias RefNode Node{RefOp}
+typealias OperationNode Node{Operation}
+typealias CallNode Node{CallEx}
+typealias RefNode Node{RefEx}
 
-callnode(op::Node, args::Vector{Node}) = Node(CallOp(op, args))
-refnode(  A::Node, inds::Vector{Node}) = Node(RefOp(  A, inds))
+callnode(op::Node, args::Vector{Node}) = Node(CallEx(op, args))
+refnode(  A::Node, inds::Vector{Node}) = Node(RefEx(  A, inds))
 
 
-# -- AssignOp -----------------------------------------------------------------
+# -- AssignEx -----------------------------------------------------------------
 
-type AssignOp <: Operation
+type AssignEx <: Operation
     lhs::RefNode
     rhs::Node
 end
 
-typealias AssignNode Node{AssignOp}
+typealias AssignNode Node{AssignEx}
 
-assignnode(lhs::RefNode, rhs::Node) = Node(AssignOp(lhs, rhs))
+assignnode(lhs::RefNode, rhs::Node) = Node(AssignEx(lhs, rhs))
 
 
 # == Context ==================================================================
@@ -98,15 +98,16 @@ assignnode(lhs::RefNode, rhs::Node) = Node(AssignOp(lhs, rhs))
 type Context
     symbols::Dict{Symbol,Node}  # current symbol bindings    
 
-    function Context(symbols::Dict{Symbol},Node) 
-        new(symbols, Symbol[], Symbol[])
+    function Context(symbols::Dict{Symbol,Node}) 
+        new(symbols, Symbol[], Symbol[], Symbol[])
     end
 
-    inputs::Vector{Symbol}
+    inputs ::Vector{Symbol}
     outputs::Vector{Symbol}
+    calls  ::Vector{Symbol}
 end
 
-function create_unbound(context::Context, name::Symbol, kind::Symbol)
+function create_external(context::Context, name::Symbol, kind::Symbol)
     if has(context.symbols, name)
         error("$name already exists in symbol table")
     end
@@ -114,7 +115,8 @@ function create_unbound(context::Context, name::Symbol, kind::Symbol)
 
     if     kind == :input;   append!(context.inputs,  [name])
     elseif kind == :output;  append!(context.outputs, [name])
-    else;                    error("unknown argument kind: :$kind");  
+    elseif kind == :call;    append!(context.calls,   [name])
+    else;                    error("unknown kind of external: :$kind");  
     end
 
     return node
@@ -123,9 +125,18 @@ end
 
 # == twine ====================================================================
 
-twine(::Context, ex::Any) = LiteralOp(ex)   # literal
+#twine(c::Context, exprs::Vector) = convert(Vector{Node}, [ twine(c, ex) | ex in exprs ])
+function twine(c::Context, exprs::Vector) 
+    nodes = convert(Vector{Node}, [ twine(c, ex) | ex in exprs ])
+    # println("\nnodes = $nodes")
+    # println("T=$(typeof(nodes))")
+    nodes
+end
+
+
+twine(::Context, ex::Any) = litnode(ex)   # literal
 function twine(context::Context, name::Symbol)
-    @setdefault(context.symbols[name], create_unbound(context, :input, name))
+    @setdefault(context.symbols[name], create_external(context, name, :input))
 end
 function twine(context::Context, ex::Expr)
     if ex.head == :line # ignore line numbers
@@ -138,17 +149,25 @@ function twine(context::Context, ex::Expr)
         return value
     elseif ex.head == :(=)  # assignment: lvalue = expr
         lhs = twine_lhs(context, ex.args[1])
-        rhs = twine(context, ex.args[2])        
+        rhs = twine(context, ex.args[2])
         return intwine_assignment(context, lhs, rhs)
     elseif (ex.head == :call)
         fname = ex.args[1]
-        op = @setdefault(context.symbols[name],
-                         create_unbound(context, :function, name))
+        op = @setdefault(context.symbols[fname],
+                         create_external(context, fname, :call))
+        # println(ex.args[2:end])
         args = twine(context, ex.args[2:end])
-        return callnode(ex.args[1], args)
+        # println(args)
+        return callnode(op, args)
     elseif (ex.head == :ref)
         args = twine(context, ex.args)
-        return refnode(args)
+        # println("args=$args")
+        # println("args[2:n]=$(args[2:end])")
+        # println("T=$(typeof(args))")
+        #refnode(  A::Node, inds::Vector{Node})        
+        args[1]::Node
+        args[2:end]::Vector{Node}
+        return refnode(args[1], args[2:end])
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -158,14 +177,16 @@ end
 
 function twine_lhs(context::Context, name::Symbol)
     @setdefault(context.symbols[name],
-                create_unbound(context, :output, name))
+                create_external(context, name, :output))
 end
 function twine_lhs(context::Context, ex::Expr)
     # assign[]
     expect_expr(ex, :ref)
-    output = expect_argument(:output, context, ex.args[1])
+    oname = ex.args[1]
+    output = @setdefault(context.symbols[oname],
+                         create_external(context, oname, :output))
     inds = twine(context, ex.args[2:end])
-    return expr(:ref, output, inds...)
+    refnode(output, inds)
 end
 
 
@@ -175,14 +196,29 @@ end
 
 function intwine_assignment(context::Context, lhs::SymNode, rhs::Node) 
     # straight assignment: just store in symbol table
-    context.symbols[lhs] = rhs # return rhs
+    context.symbols[lhs.val.name] = rhs # return rhs
 end
 function intwine_assignment(context::Context, lhs::RefNode, rhs::Node)
     # indexed assignment to output
-    dest = (lhs.op.A)::SymNode
+    dest = (lhs.val.A)::SymNode
     # bind the assignnode to the name of dest
-    context.symbols[dest.name] = assignnode(lhs, rhs)
+    context.symbols[dest.val.name] = assignnode(lhs, rhs)
     # and evaluate to the rhs
     rhs
 end
 
+
+# == Some printing ============================================================
+
+function print_code(flat_code::Vector) 
+    println("code:")
+    for ex in flat_code; println("\t", ex); end
+end
+function print_context(context::Context) 
+    println("inputs  = $(context.inputs)")
+    println("outputs = $(context.outputs)")
+    println("calls   = $(context.calls)")
+    
+    println("symbols at end:")
+    for (k, v) in context.symbols; println("\t$k = $v"); end
+end

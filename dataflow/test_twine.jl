@@ -7,13 +7,10 @@ code = quote
     dest2[] = 2A
 end
 
-symbols = Dict{Symbol,SymEntry}()
-flat_code = {}
-receive = ex->append!(flat_code, {ex})
-context = Context(symbols, receive)
+symbols = Dict{Symbol,Node}()
+context = Context(symbols)
 
-value = flatten(context, code)
+value = twine(context, code)
 
-print_code(flat_code)
 println("value = $value")
 print_context(context)
