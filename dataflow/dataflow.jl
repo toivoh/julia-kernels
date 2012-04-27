@@ -139,7 +139,7 @@ function twine(context::Context, ex::Expr)
     elseif ex.head == :(=)  # assignment: lvalue = expr
         lhs = twine_lhs(context, ex.args[1])
         rhs = twine(context, ex.args[2])        
-        return lace_assignment(context, lhs, rhs)
+        return intwine_assignment(context, lhs, rhs)
     elseif (ex.head == :call)
         fname = ex.args[1]
         op = @setdefault(context.symbols[name],
@@ -169,15 +169,15 @@ function twine_lhs(context::Context, ex::Expr)
 end
 
 
-# -- lace_assignment(context::Context, lhs, rhs) ------------------------------
+# -- intwine_assignment(context::Context, lhs, rhs) ---------------------------
 # Process assignment lhs = rhs.
 # Returns value = rhs 
 
-function lace_assignment(context::Context, lhs::SymNode, rhs::Node) 
+function intwine_assignment(context::Context, lhs::SymNode, rhs::Node) 
     # straight assignment: just store in symbol table
     context.symbols[lhs] = rhs # return rhs
 end
-function lace_assignment(context::Context, lhs::RefNode, rhs::Node)
+function intwine_assignment(context::Context, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = (lhs.op.A)::SymNode
     # bind the assignnode to the name of dest
