@@ -96,9 +96,9 @@ assignnode(lhs::RefNode, rhs::Node) = Node(AssignOp(lhs, rhs))
 # == Context ==================================================================
 
 type Context
-    symbols::HashTable{Symbol,Node}  # current symbol bindings    
+    symbols::Dict{Symbol,Node}  # current symbol bindings    
 
-    function Context(symbols::HashTable{Symbol},Node) 
+    function Context(symbols::Dict{Symbol},Node) 
         new(symbols, Symbol[], Symbol[])
     end
 
