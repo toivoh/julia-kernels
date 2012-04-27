@@ -8,7 +8,7 @@ code = quote
     dest2[] = 2A
 end
 
-symbols = HashTable{Symbol,SymEntry}()
+symbols = Dict{Symbol,SymEntry}()
 flat_code = {}
 receive = ex->append!(flat_code, {ex})
 context = Context(symbols, receive)

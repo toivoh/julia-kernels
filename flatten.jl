@@ -10,10 +10,10 @@ type SymEntry
 end
 
 type Context
-    symbols::HashTable{Symbol,SymEntry}  # current symbol bindings    
+    symbols::Dict{Symbol,SymEntry}  # current symbol bindings    
     emit_function::Function              # sink for emitted instructions
 
-    function Context(symbols::HashTable{Symbol,SymEntry}, emit) 
+    function Context(symbols::Dict{Symbol,SymEntry}, emit) 
         new(symbols, emit, Symbol[], Symbol[])
     end
 

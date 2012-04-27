@@ -37,7 +37,7 @@ end
 
 function make_kernel(nd, code)
     # flatten the code
-    symbols = HashTable{Symbol,SymEntry}()
+    symbols = Dict{Symbol,SymEntry}()
     flat_code = {}
     receive = ex->append!(flat_code, {ex})
     context = Context(symbols, receive)

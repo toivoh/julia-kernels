@@ -11,7 +11,7 @@ code = quote
     A[] = B.*C + D
 end
 
-symbols = HashTable{Symbol,SymEntry}()
+symbols = Dict{Symbol,SymEntry}()
 flat_code = {}
 receive = ex->append!(flat_code, {ex})
 context = Context(symbols, receive)
