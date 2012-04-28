@@ -51,13 +51,13 @@ function create_symnode(context::Context, name::Symbol, kind::Symbol)
     if has(context.symbols, name)
         error("$name already exists in symbol table")
     end
-    node = symnode(name, kind)
+    node = SymNode(name, kind)
 
     if     kind == :input;   append!(context.inputs,  [name])
     elseif kind == :output;  append!(context.outputs, [name])
     elseif kind == :local;   append!(context.locals,  [name])
     elseif kind == :call;    append!(context.calls,   [name])
-    else;                    error("unknown kind of symnode: :$kind");  
+    else;                    error("unknown kind of SymNode: :$kind");  
     end
 
     return node
@@ -75,15 +75,15 @@ function tangle(c::Context, exprs::Vector)
 end
 
 
-tangle(::Context, ex::Any) = litnode(ex)   # literal
+tangle(::Context, ex::Any) = LiteralNode(ex)   # literal
 function tangle(context::Context, name::Symbol)
     @setdefault(context.symbols[name], create_symnode(context, name, :input))
 end
 function tangle(context::Context, ex::Expr)
     if ex.head == :line # ignore line numbers
-        return emptynode()
+        return EmptyNode()
     elseif ex.head == :block    # exprs...
-        value = litnode(nothing)
+        value = LiteralNode(nothing)
         for subex in ex.args
             value = tangle(context, subex)
         end
@@ -99,16 +99,16 @@ function tangle(context::Context, ex::Expr)
         # println(ex.args[2:end])
         args = tangle(context, ex.args[2:end])
         # println(args)
-        return callnode(op, args)
+        return CallNode(op, args)
     elseif (ex.head == :ref)
         args = tangle(context, ex.args)
         # println("args=$args")
         # println("args[2:n]=$(args[2:end])")
         # println("T=$(typeof(args))")
-        #refnode(  A::Node, inds::Vector{Node})        
+        #RefNode(  A::Node, inds::Vector{Node})        
         args[1]::Node
         args[2:end]::Vector{Node}
-        return refnode(args[1], args[2:end])
+        return RefNode(args[1], args[2:end])
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -127,7 +127,7 @@ function tangle_lhs(context::Context, ex::Expr)
     output = @setdefault(context.symbols[oname],
                          create_symnode(context, oname, :output))
     inds = tangle(context, ex.args[2:end])
-    refnode(output, inds)
+    RefNode(output, inds)
 end
 
 

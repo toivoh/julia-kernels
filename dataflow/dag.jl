@@ -7,7 +7,13 @@ abstract Operation <: Expression
 
 type Node{T<:Expression}
     val::T
+
+    Node(val::T) = new(val)
+    Node(args...) = new(T(args...))  # this one is used by the type aliases
 end
+
+Node{T}(val::T) = Node{T}(val)
+
 
 # -- terminals ----------------------------------------------------------------
 
@@ -23,14 +29,12 @@ type SymbolEx <: Terminal
     SymbolEx(name::Symbol, kind::Symbol) = new(name, kind)
 end
 
-typealias TerinalNode Node{Terminal}
+typealias TerminalNode Node{Terminal}
+
 typealias EmptyNode Node{EmptyEx}
 typealias LiteralNode Node{LiteralEx}
 typealias SymNode Node{SymbolEx}
 
-emptynode() = Node(EmptyEx())
-litnode(l) = Node(LiteralEx(l))
-symnode(name, kind) = Node(SymbolEx(name, kind))
 
 # -- invocations --------------------------------------------------------------
 
@@ -44,11 +48,9 @@ type RefEx <: Operation
 end
 
 typealias OperationNode Node{Operation}
+
 typealias CallNode Node{CallEx}
 typealias RefNode Node{RefEx}
-
-callnode(op::Node, args::Vector{Node}) = Node(CallEx(op, args))
-refnode(  A::Node, inds::Vector{Node}) = Node(RefEx(  A, inds))
 
 
 # -- AssignEx -----------------------------------------------------------------
