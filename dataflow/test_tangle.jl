@@ -1,4 +1,4 @@
-load("twine.jl")
+load("tangle.jl")
 
 
 code = quote
@@ -10,7 +10,7 @@ end
 symbols = Dict{Symbol,Node}()
 context = Context(symbols)
 
-value = twine(context, code)
+value = tangle(context, code)
 
 println("value = $value")
 print_context(context)
