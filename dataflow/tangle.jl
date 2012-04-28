@@ -85,16 +85,15 @@ function tangle(context::TangleContext, ex::Expr)
         # println(ex.args[2:end])
         args = tangle(context, ex.args[2:end])
         # println(args)
-        return CallNode(context, op, args)
+        return CallNode(context, op, args...)
     elseif (ex.head == :ref)
         args = tangle(context, ex.args)
         # println("args=$args")
         # println("args[2:n]=$(args[2:end])")
         # println("T=$(typeof(args))")
-        #RefNode(context,   A::Node, inds::Vector{Node})        
-        args[1]::Node
-        args[2:end]::Vector{Node}
-        return RefNode(context, args[1], args[2:end])
+        # args[1]::Node
+        # args[2:end]::Vector{Node}
+        return RefNode(context, args...)
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -110,7 +109,7 @@ function tangle_lhs(context::TangleContext, ex::Expr)
     oname = ex.args[1]
     output = @setdefault context.symbols[oname] SymNode(context,oname,:output)
     inds = tangle(context, ex.args[2:end])
-    RefNode(context, output, inds)
+    RefNode(context, output, inds...)
 end
 
 

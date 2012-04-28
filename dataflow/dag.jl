@@ -14,15 +14,25 @@ type Node{T<:Expression}
 
     name::Union(Symbol,Nothing)
 
-    Node(val::T, args) = new(val,args,nothing)
-    Node(c::Context, args...) = Node(T, c, args)
-    Node(args...) = Node(T, args...)
+    # raw Node constructors
+    function Node(val::T, args) 
+        node = new(val,args,nothing)
+        if !check_args(node)
+            error("Invalid node arguments for node type: node = $node")
+        end
+        node
+    end
+    Node(val::T) = Node{T}(val, Node[])
+
+    # Used to forward typealias constructors to Node(T, args...)
+    Node(c::Context, args...) = Node(c, T, args)
+    Node(args...) = Node(T, args)
 end
 
 # Node{T}(val::T) = Node{T}(val)
 
-function Node{T<:Expression}(::Type{T}, c::Context, args) 
-    node = Node(T, args...)
+function Node{T<:Expression}(c::Context, ::Type{T}, args::Tuple) 
+    node = Node(T, args)
     emit(c, node)
     node
 end
@@ -58,7 +68,8 @@ typealias EmptyNode Node{EmptyEx}
 typealias LiteralNode Node{LiteralEx}
 typealias SymNode Node{SymbolEx}
 
-Node{T<:Terminal}(::Type{T}, args...) = Node{T}(T(args...),Node[])
+Node{T<:Terminal}(::Type{T}, args::Tuple) = Node{T}(T(args...))
+check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 
 # -- invocations --------------------------------------------------------------
@@ -67,34 +78,27 @@ type CallEx <: Operation
 end
 type RefEx <: Operation
 end
+type AssignEx <: Operation
+end
 
 typealias OperationNode Node{Operation}
 
 typealias CallNode Node{CallEx}
 typealias RefNode Node{RefEx}
-
-function Node(::Type{CallEx}, op::Node, callargs::Vector{Node})
-    CallNode(CallEx(), Node[op, callargs...])
-end
-get_op(node::CallNode) = node.args[1]
-get_callargs(node::CallNode) = node.args[2:end]
-
-function Node(::Type{RefEx}, A::Node, inds::Vector{Node})
-    RefNode(RefEx(), Node[A, inds...])
-end
-get_A(node::RefNode) = node.args[1]
-get_inds(node::RefNode) = node.args[2:end]
-
-
-# -- AssignEx -----------------------------------------------------------------
-
-type AssignEx <: Operation
-end
-
 typealias AssignNode Node{AssignEx}
 
-function Node(::Type{AssignEx}, lhs::RefNode, rhs::Node)
-    AssignNode(AssignEx(), Node[lhs, rhs])
-end
+Node{T<:Operation}(::Type{T}, args) = Node{T}(T(), Node[(args::(Node...))...])
+
+get_op(node::CallNode) = node.args[1]
+get_callargs(node::CallNode) = node.args[2:end]
+check_args(node::CallNode) = (length(node.args) >= 1)
+
+get_A(node::RefNode) = node.args[1]
+get_inds(node::RefNode) = node.args[2:end]
+check_args(node::RefNode) = (length(node.args) >= 1)
+
 get_lhs(node::AssignNode) = node.args[1]
 get_rhs(node::AssignNode) = node.args[2]
+check_args(node::AssignNode) = (get_lhs(node)::RefNode; length(node.args) == 2)
+
+
