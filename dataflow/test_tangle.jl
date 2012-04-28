@@ -7,7 +7,7 @@ code = quote
     dest2[] = 2A
 end
 
-context = Context()
+context = TangleContext()
 
 value = tangle(context, code)
 

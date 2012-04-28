@@ -1,4 +1,7 @@
 
+
+abstract Context
+
 # == Node =====================================================================
 
 abstract Expression
@@ -9,7 +12,15 @@ type Node{T<:Expression}
     val::T
 
     Node(val::T) = new(val)
-    Node(args...) = new(T(args...))  # this one is used by the type aliases
+    function Node(c::Context, val::T)
+        node = Node{T}(val)
+        emit(c, node)
+        node
+    end
+
+    # these are used by the type aliases
+    Node(c::Context, args...) = Node{T}(c,(T(args...)))
+    Node(args...) = Node{T}(T(args...))
 end
 
 Node{T}(val::T) = Node{T}(val)
