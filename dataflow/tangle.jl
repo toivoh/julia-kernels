@@ -127,10 +127,14 @@ function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = (lhs.val.A)::SymNode
     # bind the assignnode to the name of dest
-    context.symbols[dest.val.name] = assignnode(lhs, rhs)
+    context.symbols[dest.val.name] = AssignNode(context, lhs, rhs)
     # and evaluate to the rhs
     rhs
 end
+
+
+# == Untangle =================================================================
+
 
 
 # == Some printing ============================================================

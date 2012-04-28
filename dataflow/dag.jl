@@ -84,4 +84,3 @@ end
 
 typealias AssignNode Node{AssignEx}
 
-assignnode(lhs::RefNode, rhs::Node) = Node(AssignEx(lhs, rhs))
