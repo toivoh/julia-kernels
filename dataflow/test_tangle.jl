@@ -7,8 +7,7 @@ code = quote
     dest2[] = 2A
 end
 
-symbols = Dict{Symbol,Node}()
-context = Context(symbols)
+context = Context()
 
 value = tangle(context, code)
 

@@ -15,6 +15,16 @@ end
 Node{T}(val::T) = Node{T}(val)
 
 
+# == DAG ======================================================================
+
+type DAG
+    topsort::Vector{Node}
+
+    DAG() = new(Node[])
+    DAG(topsort) = new(topsort)
+end
+
+
 # -- terminals ----------------------------------------------------------------
 
 type EmptyEx <: Terminal

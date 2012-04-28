@@ -8,12 +8,13 @@ function expect_expr(ex, head::Symbol)
     end
 end
 
-macro setdefault(args...)
-    # allow @setdefault(refexpr, default)
-    if (length(args)==1) && is_expr(args[1], :tuple)
-        args = args[1].args
-    end
-    refexpr, default = tuple(args...)
+# macro setdefault(args...)
+#     # allow @setdefault(refexpr, default)
+#     if (length(args)==1) && is_expr(args[1], :tuple)
+#         args = args[1].args
+#     end
+#     refexpr, default = tuple(args...)
+macro setdefault(refexpr, default)
 
     expect_expr(refexpr, :ref)
     dict_expr, key_expr = tuple(refexpr.args...)
@@ -34,34 +35,15 @@ end
 
 # == Context ==================================================================
 
+typealias SymbolTable Dict{Symbol,Node}
+
 type Context
-    symbols::Dict{Symbol,Node}  # current symbol bindings    
-
-    function Context(symbols::Dict{Symbol,Node}) 
-        new(symbols, Symbol[], Symbol[], Symbol[], Symbol[])
-    end
-
-    inputs ::Vector{Symbol}
-    outputs::Vector{Symbol}
-    locals ::Vector{Symbol}
-    calls  ::Vector{Symbol}
+    symbols::SymbolTable  # current symbol bindings    
+    dag::DAG
 end
 
-function create_symnode(context::Context, name::Symbol, kind::Symbol)
-    if has(context.symbols, name)
-        error("$name already exists in symbol table")
-    end
-    node = SymNode(name, kind)
-
-    if     kind == :input;   append!(context.inputs,  [name])
-    elseif kind == :output;  append!(context.outputs, [name])
-    elseif kind == :local;   append!(context.locals,  [name])
-    elseif kind == :call;    append!(context.calls,   [name])
-    else;                    error("unknown kind of SymNode: :$kind");  
-    end
-
-    return node
-end
+Context(symbols::SymbolTable) = Context(symbols, DAG())
+Context() = Context(SymbolTable())
 
 
 # == tangle ===================================================================
@@ -77,7 +59,7 @@ end
 
 tangle(::Context, ex::Any) = LiteralNode(ex)   # literal
 function tangle(context::Context, name::Symbol)
-    @setdefault(context.symbols[name], create_symnode(context, name, :input))
+    @setdefault context.symbols[name] SymNode(name, :input)
 end
 function tangle(context::Context, ex::Expr)
     if ex.head == :line # ignore line numbers
@@ -94,8 +76,7 @@ function tangle(context::Context, ex::Expr)
         return entangle_assignment(context, lhs, rhs)
     elseif (ex.head == :call)
         fname = ex.args[1]
-        op = @setdefault(context.symbols[fname],
-                         create_symnode(context, fname, :call))
+        op = @setdefault context.symbols[fname] SymNode(fname, :call)
         # println(ex.args[2:end])
         args = tangle(context, ex.args[2:end])
         # println(args)
@@ -116,16 +97,12 @@ end
 # -- tangle_lhs --------------------------------------------------------------
 # Tangle a scalar-valued lhs expr
 
-function tangle_lhs(context::Context, name::Symbol)
-    @setdefault(context.symbols[name],
-                create_symnode(context, name, :local))
-end
+tangle_lhs(context::Context, name::Symbol) = SymNode(name, :local)
 function tangle_lhs(context::Context, ex::Expr)
     # assign[]
     expect_expr(ex, :ref)
     oname = ex.args[1]
-    output = @setdefault(context.symbols[oname],
-                         create_symnode(context, oname, :output))
+    output = @setdefault context.symbols[oname] SymNode(oname, :output)
     inds = tangle(context, ex.args[2:end])
     RefNode(output, inds)
 end
@@ -151,16 +128,14 @@ end
 
 # == Some printing ============================================================
 
-function print_code(flat_code::Vector) 
-    println("code:")
-    for ex in flat_code; println("\t", ex); end
+function print_dag(dag::DAG) 
+    println("nodes (topsort):")
+    for node in dag.topsort; println("\t", node); end
 end
+print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
+
 function print_context(context::Context) 
-    println("inputs  = $(context.inputs)")
-    println("outputs = $(context.outputs)")
-    println("locals  = $(context.locals)")
-    println("calls   = $(context.calls)")
-    
-    println("symbols at end:")
-    for (k, v) in context.symbols; println("\t$k = $v"); end
+    print("Symbols at end:")
+    print_symtable(context.symbols)
+    print_dag(context.dag)
 end
