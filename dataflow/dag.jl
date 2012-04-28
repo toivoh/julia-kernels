@@ -10,8 +10,9 @@ abstract Operation <: Expression
 
 type Node{T<:Expression}
     val::T
+    name::Union(Symbol,Nothing)
 
-    Node(val::T) = new(val)
+    Node(val::T) = new(val,nothing)
     function Node(c::Context, val::T)
         node = Node{T}(val)
         emit(c, node)
@@ -29,7 +30,7 @@ Node{T}(val::T) = Node{T}(val)
 # == DAG ======================================================================
 
 type DAG
-    topsort::Vector{Node}
+    topsort::Vector{Node}  # the nodes, topsorted from sources to sinks
 
     DAG() = new(Node[])
     DAG(topsort) = new(topsort)

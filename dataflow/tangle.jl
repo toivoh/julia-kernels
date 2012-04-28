@@ -120,6 +120,7 @@ end
 
 function entangle_assignment(context::TangleContext, lhs::Symbol, rhs::Node) 
     # straight assignment: just store in symbol table
+    rhs.name = lhs # remember this alias for rhs
     context.symbols[lhs] = rhs # return rhs
 end
 function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
