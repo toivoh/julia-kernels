@@ -134,6 +134,39 @@ end
 
 # == Untangle =================================================================
 
+toexpr(ex::LiteralEx) = ex.value
+toexpr(ex::SymbolEx)  = ex.name
+
+toexpr(ex::CallEx, args...)   = expr(:call, args...)
+toexpr(ex::RefEx, args...)    = expr(:ref, args...)
+toexpr(ex::AssignEx, args...) = expr(:(=), args...)
+
+
+function untangle(dag::DAG)
+    exprs = Any[]
+    for node in dag.topsort
+        if isa(node, AssignNode)
+            ex = untangle(node, true)
+            push(exprs, ex)
+        elseif !is(node.name, nothing)
+            ex = untangle(node, true)
+            ex = expr(:(=), node.name, ex)
+            push(exprs, ex)
+        end
+    end
+    exprs
+end
+
+untangle(nodes::Vector{Node}, fe::Bool) = {untangle(node, fe) | node in nodes}
+untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
+function untangle(node::OperationNode, force_expand::Bool)
+    if force_expand || is(node.name, nothing)
+        return toexpr(node.val, untangle(node.args))
+    else
+        return node.name
+    end
+end
+untangle(arg) = untangle(arg, false)
 
 
 # == Some printing ============================================================
