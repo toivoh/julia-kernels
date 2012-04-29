@@ -7,9 +7,12 @@ code = quote
     dest2[] = 2A
 end
 
-context = TangleContext()
-
-value = tangle(context, code)
+value, dag, context = tangle(code)
 
 println("value = $value")
 print_context(context)
+
+println()
+println("untangled:")
+untangled = untangle(context.dag)
+print_list(untangled)

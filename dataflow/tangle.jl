@@ -51,6 +51,13 @@ emit(c::TangleContext, node::Node) = push(c.dag.topsort, node)
 
 # == tangle ===================================================================
 
+function tangle(code)
+    context = TangleContext()
+    value = tangle(context, code)
+    value, context.dag, context
+end
+
+
 #tangle(c::TangleContext, exprs::Vector) = convert(Vector{Node}, [ tangle(c, ex) | ex in exprs ])
 function tangle(c::TangleContext, exprs::Vector) 
     nodes = convert(Vector{Node}, [ tangle(c, ex) | ex in exprs ])
@@ -171,6 +178,9 @@ untangle(arg) = untangle(arg, false)
 
 # == Some printing ============================================================
 
+function print_list(list::Vector) 
+    for item in list; println("\t", item); end
+end
 function print_dag(dag::DAG) 
     println("nodes (topsort):")
     for node in dag.topsort; println("\t", node); end
