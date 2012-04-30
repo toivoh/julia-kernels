@@ -40,13 +40,13 @@ typealias SymbolTable Dict{Symbol,Node}
 
 type TangleContext <: Context
     symbols::SymbolTable  # current symbol bindings    
-    dag::DAG
+    dag::ODAG
 end
 
-TangleContext(symbols::SymbolTable) = TangleContext(symbols, DAG())
+TangleContext(symbols::SymbolTable) = TangleContext(symbols, ODAG())
 TangleContext() = TangleContext(SymbolTable())
 
-emit(c::TangleContext, node::Node) = push(c.dag.topsort, node)
+emit(c::TangleContext, node::Node) = push(c.dag.order, node)
 
 
 # == tangle ===================================================================
@@ -149,9 +149,9 @@ toexpr(ex::RefEx, args...)    = expr(:ref, args...)
 toexpr(ex::AssignEx, args...) = expr(:(=), args...)
 
 
-function untangle(dag::DAG)
+function untangle(dag::ODAG)
     exprs = Any[]
-    for node in dag.topsort
+    for node in dag.order
         if isa(node, AssignNode)
             ex = untangle(node, true)
             push(exprs, ex)
@@ -181,9 +181,9 @@ untangle(arg) = untangle(arg, false)
 function print_list(list::Vector) 
     for item in list; println("\t", item); end
 end
-function print_dag(dag::DAG) 
-    println("nodes (topsort):")
-    for node in dag.topsort; println("\t", node); end
+function print_dag(dag::ODAG) 
+    println("nodes:")
+    for node in dag.order; println("\t", node); end
 end
 print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
 

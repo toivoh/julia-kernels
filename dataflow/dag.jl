@@ -38,13 +38,13 @@ function Node{T<:Expression}(c::Context, ::Type{T}, args...)
 end
 
 
-# == DAG ======================================================================
+# == ODAG =====================================================================
 
-type DAG
-    topsort::Vector{Node}  # the nodes, topsorted from sources to sinks
+type ODAG
+    order::Vector{Node}  # the nodes, topsorted from sources to sinks
 
-    DAG() = new(Node[])
-    DAG(topsort) = new(topsort)
+    ODAG() = new(Node[])
+    ODAG(order) = new(order)
 end
 
 
