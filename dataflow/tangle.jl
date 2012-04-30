@@ -33,7 +33,7 @@ function tangle(code)
     value = tangle(context, code)
     dag = context.dag
     dag.value = value
-    dag.bottom = TupleNode(value, dag.bottom_actions...)
+    dag.bottom = TupleNode(dag.bottom_actions..., value)
     if is((value::Node).name, nothing)
         value.name = :value
     end
@@ -146,6 +146,9 @@ function untangle(dag::DAG)
             push(exprs, ex)
         end
     end
+    if !is(dag.order[end], dag.value)
+        push(exprs, dag.value.name)
+    end
     exprs
 end
 
@@ -173,10 +176,10 @@ end
 print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
 
 function print_context(context::TangleContext) 
-    println("SymNode names by kind:")
-    for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end
+    println()
+    print_dag(context.dag) 
     println("Symbols at end:")
     print_symtable(context.symbols)
-    println()
-    print_dag(context.dag)
+    println("SymNode names by kind:")
+    for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end 
 end

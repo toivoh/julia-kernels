@@ -109,24 +109,39 @@ end
 
 # == DAG ======================================================================
 
+typealias SymNodeTable Dict{Symbol,Vector{Symbol}}
+
 type DAG
     value::Node
     bottom_actions::Vector{ActionNode}
     bottom::Node
 
-    order::Vector{Node}  # the nodes, topsorted from sources to sinks
+    symnode_names::SymNodeTable  # kind => used SymNode names
+    order::Vector{Node}          # the nodes, topsorted from sources to sinks
 
-    symnode_names::Dict{Symbol,Vector{Symbol}}  # kind => used SymNode names
-
-    DAG() = new(NoNode(), ActionNode[], NoNode(), 
-                Node[], Dict{Symbol,Vector{Symbol}}())
-#    DAG(order) = new(order)
+#     DAG() = new(NoNode(), ActionNode[], NoNode(), SymNodeTable(), Node[])
+    DAG() = new(NoNode(), ActionNode[], NoNode())
 end
 
-# function emit(dag::DAG, node::Node)
-#     push(dag.order, node)
-#     if isa(node, SymNode)
-#         names = @setdefault dag.symnode_names[node.val.kind] Symbol[]
-#         push(names, node.val.name)
+# __em_node = nothing # debug
+# function emit_to_order(dag::DAG, node::Node) # seems to misbehave without ANY
+function emit_to_order(dag::DAG, node::ANY)
+#     println("emit_to_order:")
+#     global __em_node = nothing # debug
+#     if is(__em_node, nothing)
+#         __em_node = node
+#         println("\t",typeof(__em_node))
 #     end
-# end
+
+    push(dag.order, node)
+#     println("\t node.val         = \t", typeof(node.val))
+#     println("\t typeof(node)     = \t", typeof(node))
+#     println("\t typeof(node.val) = \t", typeof(node.val))
+#     println("\t isa(node, SymNode)) =\t", isa(node, SymNode))
+#     println("\t isa(node, AssignNode)) =\t", isa(node, AssignNode))
+#     println("\t node             = \t", node)    
+    if isa(node, SymNode)
+        names = @setdefault dag.symnode_names[node.val.kind] Symbol[]
+        push(names, node.val.name)
+    end
+end

@@ -1,5 +1,5 @@
 load("tangle.jl")
-
+load("transforms.jl")
 
 code = quote
     A = B.*C + D[j,i]
@@ -8,9 +8,11 @@ code = quote
 end
 
 value, dag, context = tangle(code)
+order!(dag)
 
-println("value = $value")
 print_context(context)
+println("value = $value")
+
 
 println()
 println("untangled:")
