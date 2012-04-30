@@ -9,8 +9,9 @@ typealias SymbolTable Dict{Symbol,Node}
 type TangleContext <: Context
     symbols::SymbolTable                        # current symbol bindings
     dag::ODAG
+    last_actions::Vector{ActionNode}
 
-    TangleContext() = new(SymbolTable(), ODAG())
+    TangleContext() = new(SymbolTable(), ODAG(), ActionNode[])
 end
 
 emit(c::TangleContext, node::Node) = emit(c.dag, node)
@@ -113,8 +114,10 @@ end
 function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = get_A(lhs)::SymNode
+    node = AssignNode(context, lhs, rhs, context.last_actions...)
     # bind the assignnode to the name of dest
-    context.symbols[dest.val.name] = AssignNode(context, lhs, rhs)
+    context.symbols[dest.val.name] = node
+    context.last_actions = [node]
     # and evaluate to the rhs
     rhs
 end
