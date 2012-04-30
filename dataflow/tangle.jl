@@ -148,7 +148,7 @@ end
 
 untangle(nodes::Vector{Node}, fe::Bool) = {untangle(node, fe) | node in nodes}
 untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
-function untangle(node::OperationNode, force_expand::Bool)
+function untangle(node::OpNode, force_expand::Bool)
     if force_expand || is(node.name, nothing)
         return toexpr(node.val, untangle(node.args))
     else

@@ -36,8 +36,10 @@ abstract Context
 # == Node =====================================================================
 
 abstract Expression
-abstract Terminal <: Expression
+abstract Terminal  <: Expression
 abstract Operation <: Expression
+abstract FuncOp        <: Operation # operation without side effects
+abstract Action        <: Operation # operation with side effects
 
 type Node{T<:Expression}
     val::T
@@ -67,6 +69,13 @@ function Node{T<:Expression}(c::Context, ::Type{T}, targs...)
     emit(c, node)
     node
 end
+
+
+typealias TerminalNode{T<:Terminal} Node{T}
+
+typealias OpNode{T<:Operation}  Node{T}
+typealias FuncOpNode{T<:FuncOp} Node{T}
+typealias ActionNode{T<:Action} Node{T}
 
 
 # == ODAG =====================================================================
@@ -102,8 +111,6 @@ type SymbolEx <: Terminal
     SymbolEx(name::Symbol, kind::Symbol) = new(name, kind)
 end
 
-typealias TerminalNode{T<:Terminal} Node{T}
-
 typealias EmptyNode Node{EmptyEx}
 typealias LiteralNode Node{LiteralEx}
 typealias SymNode Node{SymbolEx}
@@ -112,19 +119,15 @@ Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...))
 check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 
-# -- operations ---------------------------------------------------------------
+# -- functional operations (side effect free) ---------------------------------
 
 type CallEx     <: Operation; end
 type RefEx      <: Operation; end
 type EllipsisEx <: Operation; end
-type AssignEx   <: Operation; end
-
-typealias OperationNode{T<:Operation} Node{T}
 
 typealias CallNode     Node{CallEx}
 typealias RefNode      Node{RefEx}
 typealias EllipsisNode Node{RefEx}
-typealias AssignNode   Node{AssignEx}
 
 Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args...)
 
@@ -138,8 +141,20 @@ check_args(node::RefNode) = (length(node.args) >= 1)
 
 check_args(node::EllipsisNode) = true
 
+
+# -- actions (operations with side effects ------------------------------------
+
+type AssignEx <: Action; end
+
+typealias AssignNode Node{AssignEx}
+
 get_lhs(node::AssignNode) = node.args[1]
 get_rhs(node::AssignNode) = node.args[2]
-check_args(node::AssignNode) = (get_lhs(node)::RefNode; length(node.args) == 2)
+get_preevents(node::AssignNode) = node.args[3:end]
+function check_args(node::AssignNode) 
+    get_lhs(node)::RefNode
+    @assert length(node.args) >= 2
+    allp(arg->isa(arg, ActionNode), get_preevents(node))
+end
 
 
