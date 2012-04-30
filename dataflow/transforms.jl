@@ -3,11 +3,11 @@
 # == RewriteContext ===========================================================
 
 type RewriteContext{V}  # <: Context
-    dag::ODAG
+    dag::DAG
     results::Dict{Node,Node}
     visitor::V
 
-    RewriteContext(visitor::V) = new(ODAG(), Dict{Node,Node}(),visitor)
+    RewriteContext(visitor::V) = new(DAG(), Dict{Node,Node}(),visitor)
 end
 
 function rewrite_node(context::RewriteContext, node::Node)
@@ -23,7 +23,7 @@ function rewrite_node(context::RewriteContext, node::Node)
     newnode
 end
 
-function rewrite_dag(dag::ODAG)
+function rewrite_dag(dag::DAG)
     for node in dag.nodes
         emit(dag, rewrite_node(context, node))
     end

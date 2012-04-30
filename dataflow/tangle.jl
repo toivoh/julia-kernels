@@ -8,10 +8,11 @@ typealias SymbolTable Dict{Symbol,Node}
 
 type TangleContext  # <: Context
     symbols::SymbolTable                        # current symbol bindings
-    dag::ODAG
-    last_actions::Vector{ActionNode}
+    dag::DAG
+    #last_actions::Vector{ActionNode}
 
-    TangleContext() = new(SymbolTable(), ODAG(), ActionNode[])
+#    TangleContext() = new(SymbolTable(), DAG(), ActionNode[])
+    TangleContext() = new(SymbolTable(), DAG())
 end
 
 emit(c::TangleContext, node::Node) = emit(c.dag, node)
@@ -30,6 +31,9 @@ emit(c::TangleContext, node::Node) = emit(c.dag, node)
 function tangle(code)
     context = TangleContext()
     value = tangle(context, code)
+    dag = context.dag
+    dag.value = value
+    dag.bottom = TupleNode(value, dag.bottom_actions...)
     if is((value::Node).name, nothing)
         value.name = :value
     end
@@ -53,7 +57,7 @@ end
 function tangle(context::TangleContext, ex::Expr)
     if ex.head == :line # ignore line numbers
         # don't need to emit this one; shouldn't remain in the DAG
-        return EmptyNode() 
+        return NoNode() 
     elseif ex.head == :block    # exprs...
         value = LiteralNode(nothing)
         for subex in ex.args
@@ -108,10 +112,10 @@ end
 function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = get_A(lhs)::SymNode
-    node = AssignNode(lhs, rhs, context.last_actions...)
+    node = AssignNode(lhs, rhs, context.dag.bottom_actions...)
     # bind the assignnode to the name of dest
     context.symbols[dest.val.name] = node
-    context.last_actions = [node]
+    context.dag.bottom_actions = [node]
     # and evaluate to the rhs
     rhs
 end
@@ -130,7 +134,7 @@ toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
 toexpr(ex::AssignEx,   args...) = expr(:(=),   args...)
 
 
-function untangle(dag::ODAG)
+function untangle(dag::DAG)
     exprs = Any[]
     for node in dag.order
         if isa(node, AssignNode)
@@ -162,7 +166,7 @@ untangle(arg) = untangle(arg, false)
 function print_list(list::Vector) 
     for item in list; println("\t", item); end
 end
-function print_dag(dag::ODAG) 
+function print_dag(dag::DAG) 
     println("nodes:")
     for node in dag.order; println("\t", node); end
 end

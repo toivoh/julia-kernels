@@ -29,26 +29,6 @@ end
 Node{T}(val::T, args...) = Node{T}(val, args...)
 
 
-# == ODAG =====================================================================
-
-type ODAG
-    order::Vector{Node}  # the nodes, topsorted from sources to sinks
-
-    symnode_names::Dict{Symbol,Vector{Symbol}}  # kind => used SymNode names
-
-    ODAG() = new(Node[], Dict{Symbol,Vector{Symbol}}())
-    ODAG(order) = new(order)
-end
-
-function emit(dag::ODAG, node::Node)
-    push(dag.order, node)
-    if isa(node, SymNode)
-        names = @setdefault dag.symnode_names[node.val.kind] Symbol[]
-        push(names, node.val.name)
-    end
-end
-
-
 # -- expressions --------------------------------------------------------------
 
 abstract Terminal  <: Expression
@@ -69,7 +49,7 @@ get_args(node::Operation) = node.args
 
 # -- terminals ----------------------------------------------------------------
 
-type EmptyEx <: Terminal; end
+type NoEx <: Terminal; end
 type LiteralEx <: Terminal
     value
 end
@@ -80,9 +60,9 @@ type SymbolEx <: Terminal
     SymbolEx(name::Symbol, kind::Symbol) = new(name, kind)
 end
 
-typealias EmptyNode Node{EmptyEx}
+typealias NoNode      Node{NoEx}
 typealias LiteralNode Node{LiteralEx}
-typealias SymNode Node{SymbolEx}
+typealias SymNode     Node{SymbolEx}
 
 Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...))
 check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
@@ -108,7 +88,7 @@ get_A(node::RefNode) = node.args[1]
 get_inds(node::RefNode) = node.args[2:end]
 check_args(node::RefNode) = (length(node.args) >= 1)
 
-check_args(node::FuncOp) = true
+check_args(node::FuncOpNode) = true
 
 
 # -- actions (operations with side effects ------------------------------------
@@ -127,3 +107,26 @@ function check_args(node::AssignNode)
 end
 
 
+# == DAG ======================================================================
+
+type DAG
+    value::Node
+    bottom_actions::Vector{ActionNode}
+    bottom::Node
+
+    order::Vector{Node}  # the nodes, topsorted from sources to sinks
+
+    symnode_names::Dict{Symbol,Vector{Symbol}}  # kind => used SymNode names
+
+    DAG() = new(NoNode(), ActionNode[], NoNode(), 
+                Node[], Dict{Symbol,Vector{Symbol}}())
+#    DAG(order) = new(order)
+end
+
+# function emit(dag::DAG, node::Node)
+#     push(dag.order, node)
+#     if isa(node, SymNode)
+#         names = @setdefault dag.symnode_names[node.val.kind] Symbol[]
+#         push(names, node.val.name)
+#     end
+# end
