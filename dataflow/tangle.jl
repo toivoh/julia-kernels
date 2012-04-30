@@ -54,6 +54,9 @@ emit(c::TangleContext, node::Node) = push(c.dag.order, node)
 function tangle(code)
     context = TangleContext()
     value = tangle(context, code)
+    if is((value::Node).name, nothing)
+        value.name = :value
+    end
     value, context.dag, context
 end
 
