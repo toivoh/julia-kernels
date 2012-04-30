@@ -1,38 +1,6 @@
 
 load("dag.jl")
 
-is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
-function expect_expr(ex, head::Symbol)
-    if !is_expr(ex, head)
-        error("expected expr(:$head,...), found $ex")
-    end
-end
-
-# macro setdefault(args...)
-#     # allow @setdefault(refexpr, default)
-#     if (length(args)==1) && is_expr(args[1], :tuple)
-#         args = args[1].args
-#     end
-#     refexpr, default = tuple(args...)
-macro setdefault(refexpr, default)
-    expect_expr(refexpr, :ref)
-    dict_expr, key_expr = tuple(refexpr.args...)
-    @gensym dict key #defval
-    quote
-        ($dict)::Associative = ($dict_expr)
-        ($key) = ($key_expr)
-        if has(($dict), ($key))
-            ($dict)[($key)]
-        else
-            ($dict)[($key)] = ($default) # returns the newly inserted value
-#             ($defval) = ($default)
-#             println("defval: ", ($defval))
-#             ($dict)[($key)] = ($defval) # returns the newly inserted value
-        end
-    end
-end
-
-
 
 # == TangleContext ============================================================
 
@@ -40,20 +8,20 @@ typealias SymbolTable Dict{Symbol,Node}
 
 type TangleContext <: Context
     symbols::SymbolTable                        # current symbol bindings
-    symnode_names::Dict{Symbol,Vector{Symbol}}  # kind => used SymNode names
     dag::ODAG
 
-    TangleContext() = new(SymbolTable(), Dict{Symbol,Vector{Symbol}}(), ODAG())
+    TangleContext() = new(SymbolTable(), ODAG())
 end
 
+emit(c::TangleContext, node::Node) = emit(c.dag, node)
 #emit(c::TangleContext, node::Node) = push(c.dag.order, node)
-function emit(c::TangleContext, node::Node)
-    push(c.dag.order, node)
-    if isa(node, SymNode)
-        names = @setdefault c.symnode_names[node.val.kind] Symbol[]
-        push(names, node.val.name)
-    end
-end
+# function emit(c::TangleContext, node::Node)
+#     push(c.dag.order, node)
+#     if isa(node, SymNode)
+#         names = @setdefault c.symnode_names[node.val.kind] Symbol[]
+#         push(names, node.val.name)
+#     end
+# end
 
 
 # == tangle ===================================================================
@@ -199,7 +167,7 @@ print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
 
 function print_context(context::TangleContext) 
     println("SymNode names by kind:")
-    for (k, names) in context.symnode_names; println("\t$k:\t$names"); end
+    for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end
     println("Symbols at end:")
     print_symtable(context.symbols)
     println()
