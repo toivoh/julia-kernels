@@ -39,14 +39,21 @@ end
 typealias SymbolTable Dict{Symbol,Node}
 
 type TangleContext <: Context
-    symbols::SymbolTable  # current symbol bindings    
+    symbols::SymbolTable                        # current symbol bindings
+    symnode_names::Dict{Symbol,Vector{Symbol}}  # kind => used SymNode names
     dag::ODAG
+
+    TangleContext() = new(SymbolTable(), Dict{Symbol,Vector{Symbol}}(), ODAG())
 end
 
-TangleContext(symbols::SymbolTable) = TangleContext(symbols, ODAG())
-TangleContext() = TangleContext(SymbolTable())
-
-emit(c::TangleContext, node::Node) = push(c.dag.order, node)
+#emit(c::TangleContext, node::Node) = push(c.dag.order, node)
+function emit(c::TangleContext, node::Node)
+    push(c.dag.order, node)
+    if isa(node, SymNode)
+        names = @setdefault c.symnode_names[node.val.kind] Symbol[]
+        push(names, node.val.name)
+    end
+end
 
 
 # == tangle ===================================================================
@@ -191,6 +198,8 @@ end
 print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
 
 function print_context(context::TangleContext) 
+    println("SymNode names by kind:")
+    for (k, names) in context.symnode_names; println("\t$k:\t$names"); end
     println("Symbols at end:")
     print_symtable(context.symbols)
     println()
