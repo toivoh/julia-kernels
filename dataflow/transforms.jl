@@ -2,7 +2,7 @@
 
 # == RewriteContext ===========================================================
 
-type RewriteContext{V} <: Context
+type RewriteContext{V}  # <: Context
     dag::ODAG
     results::Dict{Node,Node}
     visitor::V
@@ -43,6 +43,6 @@ end
 rewrite(::ScatterContext, node::Node) = node
 
 function scatter_input(c::ScatterContext, node::SymNode) 
-    RefNode(c, node, EllipsisNode(c, SymNode(c, :indvars, :input)))
+    RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
 end
 scatter_input(c::ScatterContext, node::Node) = node

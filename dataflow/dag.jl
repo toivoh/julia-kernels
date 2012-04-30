@@ -2,15 +2,9 @@
 load("utils.jl")
 
 
-abstract Context
-
 # == Node =====================================================================
 
 abstract Expression
-abstract Terminal  <: Expression
-abstract Operation <: Expression
-abstract FuncOp        <: Operation # operation without side effects
-abstract Action        <: Operation # operation with side effects
 
 type Node{T<:Expression}
     val::T
@@ -29,24 +23,10 @@ type Node{T<:Expression}
     end
 
     # Used to forward typealias constructors to Node(T, args...)
-    Node(c::Context, targs...) = Node(c, T, targs...)
     Node(targs...) = Node(T, targs...)
 end
 
 Node{T}(val::T, args...) = Node{T}(val, args...)
-
-function Node{T<:Expression}(c::Context, ::Type{T}, targs...) 
-    node = Node(T, targs...)
-    emit(c, node)
-    node
-end
-
-
-typealias TerminalNode{T<:Terminal} Node{T}
-
-typealias OpNode{T<:Operation}  Node{T}
-typealias FuncOpNode{T<:FuncOp} Node{T}
-typealias ActionNode{T<:Action} Node{T}
 
 
 # == ODAG =====================================================================
@@ -67,6 +47,20 @@ function emit(dag::ODAG, node::Node)
         push(names, node.val.name)
     end
 end
+
+
+# -- expressions --------------------------------------------------------------
+
+abstract Terminal  <: Expression
+abstract Operation <: Expression
+abstract FuncOp        <: Operation # operation without side effects
+abstract Action        <: Operation # operation with side effects
+
+typealias TerminalNode{T<:Terminal} Node{T}
+
+typealias OpNode{T<:Operation}  Node{T}
+typealias FuncOpNode{T<:FuncOp} Node{T}
+typealias ActionNode{T<:Action} Node{T}
 
 
 # -- terminals ----------------------------------------------------------------

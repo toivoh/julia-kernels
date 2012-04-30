@@ -6,7 +6,7 @@ load("dag.jl")
 
 typealias SymbolTable Dict{Symbol,Node}
 
-type TangleContext <: Context
+type TangleContext  # <: Context
     symbols::SymbolTable                        # current symbol bindings
     dag::ODAG
     last_actions::Vector{ActionNode}
@@ -46,32 +46,31 @@ function tangle(c::TangleContext, exprs::Vector)
 end
 
 
-tangle(c::TangleContext, ex::Any) = LiteralNode(c, ex)   # literal
+tangle(c::TangleContext, ex::Any) = LiteralNode(ex)   # literal
 function tangle(context::TangleContext, name::Symbol)
-    @setdefault context.symbols[name] SymNode(context, name, :input)
+    @setdefault context.symbols[name] SymNode(name, :input)
 end
 function tangle(context::TangleContext, ex::Expr)
     if ex.head == :line # ignore line numbers
         # don't need to emit this one; shouldn't remain in the DAG
         return EmptyNode() 
     elseif ex.head == :block    # exprs...
-        value = Nothing
+        value = LiteralNode(nothing)
         for subex in ex.args
             value = tangle(context, subex)
         end
-        if is(value, Nothing); return LiteralNode(context, nothing)
-        else;                  return value; end
+        return value
     elseif ex.head == :(=)  # assignment: lvalue = expr
         lhs = tangle_lhs(context, ex.args[1])
         rhs = tangle(context, ex.args[2])
         return entangle_assignment(context, lhs, rhs)
     elseif (ex.head == :call)
         fname = ex.args[1]
-        op = @setdefault context.symbols[fname] SymNode(context, fname, :call)
+        op = @setdefault context.symbols[fname] SymNode(fname, :call)
         # println(ex.args[2:end])
         args = tangle(context, ex.args[2:end])
         # println(args)
-        return CallNode(context, op, args...)
+        return CallNode(op, args...)
     elseif (ex.head == :ref)
         args = tangle(context, ex.args)
         # println("args=$args")
@@ -79,10 +78,10 @@ function tangle(context::TangleContext, ex::Expr)
         # println("T=$(typeof(args))")
         # args[1]::Node
         # args[2:end]::Vector{Node}
-        return RefNode(context, args...)
+        return RefNode(args...)
     elseif (ex.head == :(...))
         args = tangle(context, ex.args)
-        return EllipsisNode(context, args)
+        return EllipsisNode(args)
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -90,15 +89,15 @@ end
 # -- tangle_lhs --------------------------------------------------------------
 # Tangle a scalar-valued lhs expr; return lone symbols unadorned
 
-#tangle_lhs(context::TangleContext, name::Symbol) = SymNode(context, name, :local)
+#tangle_lhs(context::TangleContext, name::Symbol) = SymNode(name, :local)
 tangle_lhs(context::TangleContext, name::Symbol) = name
 function tangle_lhs(context::TangleContext, ex::Expr)
     # assign[]
     expect_expr(ex, :ref)
     oname = ex.args[1]
-    output = @setdefault context.symbols[oname] SymNode(context,oname,:output)
+    output = @setdefault context.symbols[oname] SymNode(oname, :output)
     inds = tangle(context, ex.args[2:end])
-    RefNode(context, output, inds...)
+    RefNode(output, inds...)
 end
 
 
@@ -114,7 +113,7 @@ end
 function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = get_A(lhs)::SymNode
-    node = AssignNode(context, lhs, rhs, context.last_actions...)
+    node = AssignNode(lhs, rhs, context.last_actions...)
     # bind the assignnode to the name of dest
     context.symbols[dest.val.name] = node
     context.last_actions = [node]
