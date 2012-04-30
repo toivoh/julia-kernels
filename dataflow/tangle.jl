@@ -72,16 +72,11 @@ function tangle(context::TangleContext, ex::Expr)
         # println(args)
         return CallNode(op, args...)
     elseif (ex.head == :ref)
-        args = tangle(context, ex.args)
-        # println("args=$args")
-        # println("args[2:n]=$(args[2:end])")
-        # println("T=$(typeof(args))")
-        # args[1]::Node
-        # args[2:end]::Vector{Node}
-        return RefNode(args...)
-    elseif (ex.head == :(...))
-        args = tangle(context, ex.args)
-        return EllipsisNode(args)
+        return RefNode(tangle(context, ex.args)...)
+    elseif (ex.head == :(...))  # todo: test!
+        return EllipsisNode(tangle(context, ex.args)...)
+    elseif (ex.head == :tuple)  # todo: test!
+        return TupleNode(tangle(context, ex.args)...)
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -129,7 +124,9 @@ toexpr(ex::SymbolEx)  = ex.name
 
 toexpr(ex::CallEx,     args...) = expr(:call,  args...)
 toexpr(ex::RefEx,      args...) = expr(:ref,   args...)
+toexpr(ex::TupleEx,    args...) = expr(:tuple, args...)
 toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
+
 toexpr(ex::AssignEx,   args...) = expr(:(=),   args...)
 
 

@@ -62,6 +62,10 @@ typealias OpNode{T<:Operation}  Node{T}
 typealias FuncOpNode{T<:FuncOp} Node{T}
 typealias ActionNode{T<:Action} Node{T}
 
+Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args...)
+
+get_args(node::Operation) = node.args
+
 
 # -- terminals ----------------------------------------------------------------
 
@@ -86,15 +90,15 @@ check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 # -- functional operations (side effect free) ---------------------------------
 
-type CallEx     <: Operation; end
-type RefEx      <: Operation; end
-type EllipsisEx <: Operation; end
+type CallEx     <: FuncOp; end
+type RefEx      <: FuncOp; end
+type TupleEx    <: FuncOp; end
+type EllipsisEx <: FuncOp; end
 
 typealias CallNode     Node{CallEx}
 typealias RefNode      Node{RefEx}
-typealias EllipsisNode Node{RefEx}
-
-Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args...)
+typealias TupleNode    Node{TupleEx}
+typealias EllipsisNode Node{EllipsisEx}
 
 get_op(node::CallNode) = node.args[1]
 get_callargs(node::CallNode) = node.args[2:end]
@@ -104,7 +108,7 @@ get_A(node::RefNode) = node.args[1]
 get_inds(node::RefNode) = node.args[2:end]
 check_args(node::RefNode) = (length(node.args) >= 1)
 
-check_args(node::EllipsisNode) = true
+check_args(node::FuncOp) = true
 
 
 # -- actions (operations with side effects ------------------------------------
