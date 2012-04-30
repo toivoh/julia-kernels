@@ -56,14 +56,14 @@ type Node{T<:Expression}
     end
 
     # Used to forward typealias constructors to Node(T, args...)
-    Node(c::Context, args...) = Node(c, T, args...)
-    Node(args...) = Node(T, args...)
+    Node(c::Context, targs...) = Node(c, T, targs...)
+    Node(targs...) = Node(T, targs...)
 end
 
 Node{T}(val::T, args...) = Node{T}(val, args...)
 
-function Node{T<:Expression}(c::Context, ::Type{T}, args...) 
-    node = Node(T, args...)
+function Node{T<:Expression}(c::Context, ::Type{T}, targs...) 
+    node = Node(T, targs...)
     emit(c, node)
     node
 end
@@ -91,8 +91,7 @@ end
 
 # -- terminals ----------------------------------------------------------------
 
-type EmptyEx <: Terminal
-end
+type EmptyEx <: Terminal; end
 type LiteralEx <: Terminal
     value
 end
@@ -109,24 +108,23 @@ typealias EmptyNode Node{EmptyEx}
 typealias LiteralNode Node{LiteralEx}
 typealias SymNode Node{SymbolEx}
 
-Node{T<:Terminal}(::Type{T}, args...) = Node{T}(T(args...))
+Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...))
 check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 
-# -- invocations --------------------------------------------------------------
+# -- operations ---------------------------------------------------------------
 
-type CallEx <: Operation
-end
-type RefEx <: Operation
-end
-type AssignEx <: Operation
-end
+type CallEx     <: Operation; end
+type RefEx      <: Operation; end
+type EllipsisEx <: Operation; end
+type AssignEx   <: Operation; end
 
 typealias OperationNode{T<:Operation} Node{T}
 
-typealias CallNode Node{CallEx}
-typealias RefNode Node{RefEx}
-typealias AssignNode Node{AssignEx}
+typealias CallNode     Node{CallEx}
+typealias RefNode      Node{RefEx}
+typealias EllipsisNode Node{RefEx}
+typealias AssignNode   Node{AssignEx}
 
 Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args...)
 
@@ -137,6 +135,8 @@ check_args(node::CallNode) = (length(node.args) >= 1)
 get_A(node::RefNode) = node.args[1]
 get_inds(node::RefNode) = node.args[2:end]
 check_args(node::RefNode) = (length(node.args) >= 1)
+
+check_args(node::EllipsisNode) = true
 
 get_lhs(node::AssignNode) = node.args[1]
 get_rhs(node::AssignNode) = node.args[2]

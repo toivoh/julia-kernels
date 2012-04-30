@@ -79,6 +79,9 @@ function tangle(context::TangleContext, ex::Expr)
         # args[1]::Node
         # args[2:end]::Vector{Node}
         return RefNode(context, args...)
+    elseif (ex.head == :(...))
+        args = tangle(context, ex.args)
+        return EllipsisNode(context, args)
     end
     error("unexpected scalar rhs: ex = $ex")
 end
@@ -122,9 +125,10 @@ end
 toexpr(ex::LiteralEx) = ex.value
 toexpr(ex::SymbolEx)  = ex.name
 
-toexpr(ex::CallEx, args...)   = expr(:call, args...)
-toexpr(ex::RefEx, args...)    = expr(:ref, args...)
-toexpr(ex::AssignEx, args...) = expr(:(=), args...)
+toexpr(ex::CallEx,     args...) = expr(:call,  args...)
+toexpr(ex::RefEx,      args...) = expr(:ref,   args...)
+toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
+toexpr(ex::AssignEx,   args...) = expr(:(=),   args...)
 
 
 function untangle(dag::ODAG)
