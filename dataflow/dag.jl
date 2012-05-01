@@ -13,20 +13,28 @@ type Node{T<:Expression}
     name::Union(Symbol,Nothing)
 
     # raw Node constructors
-    function Node(val::T, args...) 
-        args::(Node...)
+    function Node(val::T, args) 
+        if !isa(args, Vector{Node});   args = Node[args...];   end
+
         node = new(val, Node[args...], nothing)
         if !check_args(node)
             error("Invalid node arguments for node type: node = $node")
         end
         node
     end
+    function Node{S<:Expression}(val::S, args...) 
+        error("Node{$T}: No constructor for val = $val, args=$args")
+    end
 
     # Used to forward typealias constructors to Node(T, args...)
-    Node(targs...) = Node(T, targs...)
+#    Node(targs...) = Node(T, targs...)
+    function Node(targs...)
+        println("Node{$T}($targs)")
+        Node(T, targs...)
+    end
 end
 
-Node{T}(val::T, args...) = Node{T}(val, args...)
+Node{T<:Expression}(val::T, args...) = Node{T}(val, args...)
 
 
 # -- expressions --------------------------------------------------------------
@@ -42,7 +50,7 @@ typealias OpNode{T<:Operation}  Node{T}
 typealias FuncOpNode{T<:FuncOp} Node{T}
 typealias ActionNode{T<:Action} Node{T}
 
-Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args...)
+Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args)
 
 get_args(node::Operation) = node.args
 
@@ -64,7 +72,7 @@ typealias NoNode      Node{NoEx}
 typealias LiteralNode Node{LiteralEx}
 typealias SymNode     Node{SymbolEx}
 
-Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...))
+Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...), ())
 check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 
@@ -120,7 +128,15 @@ type DAG
 
 #     DAG() = new(ActionNode[], NoNode(), SymNodeTable(), Node[])
     DAG() = new(ActionNode[], NoNode())
+    
+    DAG(bottom::Node) = new(bottom.args[1:end-1], bottom)
 end
+
+function set_value!(dag::DAG, value::Node)
+    dag.bottom = TupleNode(dag.bottom_actions..., value)
+end
+
+get_value(dag::DAG) = dag.bottom.args[end]
 
 # __em_node = nothing # debug
 # function emit_to_order(dag::DAG, node::Node) # seems to misbehave without ANY
@@ -145,8 +161,4 @@ function emit_to_order(dag::DAG, node::ANY)
     end
 end
 
-function set_value!(dag::DAG, value::Node)
-    dag.bottom = TupleNode(dag.bottom_actions..., value)
-end
 
-get_value(dag::DAG) = dag.bottom.args[end]

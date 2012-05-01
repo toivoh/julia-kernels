@@ -18,3 +18,9 @@ println()
 println("untangled:")
 untangled = untangle(context.dag)
 print_list(untangled)
+
+
+dag2, c2 = rewrite_dag(dag, ScatterVisitor())
+order!(dag2)
+println("\ndag2 untangled:")
+print_untangled(dag2)

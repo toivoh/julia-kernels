@@ -33,46 +33,66 @@ end
 # == RewriteContext ===========================================================
 
 type RewriteContext{V}  # <: Context
-    dag::DAG
     results::Dict{Node,Node}
     visitor::V
 
-    RewriteContext(visitor::V) = new(DAG(), Dict{Node,Node}(),visitor)
+    RewriteContext(visitor::V) = new(Dict{Node,Node}(),visitor)
 end
 
+RewriteContext{V}(visitor::V) = RewriteContext{V}(visitor)
+
+
 function rewrite_node(context::RewriteContext, node::Node)
-    # subsitute node args
-    newargs = Node[{context.results[arg] | arg in node.args}...]
-    subsnode = Node(node.val, newargs)
-
+    if has(context.results, node)
+        return context.results[node]
+    end
+    # rewrite node args
+    args = {rewrite_node(context, arg) | arg in node.args}
     # rewrite the node
-    newnode = rewrite(context, subsnode)
 
-    # store the results
+    # todo: remove!
+    global __node = node
+    node  = __node
+
+    println("rewrite_node:")
+    println("\t node.val         = \t", typeof(node.val))
+    println("\t typeof(node)     = \t", typeof(node))
+    println("\t typeof(node.val) = \t", typeof(node.val))
+    println("\t isa(node, SymNode)) =\t", isa(node, SymNode))
+    println("\t isa(node, TupleNode)) =\t", isa(node, AssignNode))
+    println("\t node             = \t", node)    
+
+
+    subsnode = Node(node.val, args)
+    subsnode.name = node.name
+    newnode = rewrite(context, subsnode)
+    # store the results and return
     context.results[node] = newnode
     newnode
 end
 
-function rewrite_dag(dag::DAG)
-    for node in dag.nodes
-        emit(dag, rewrite_node(context, node))
-    end
-    dag
+function rewrite_dag(dag::DAG, visitor)
+    context = RewriteContext(visitor)
+    bottom = rewrite_node(context, dag.bottom)
+    DAG(bottom), context
 end
 
 
 # -- Scatterer ----------------------------------------------------------------
 
-type Scatterer
-end
-typealias ScatterContext RewriteContext{Scatterer}
+type ScatterVisitor; end
+typealias ScatterContext RewriteContext{ScatterVisitor}
 
 function rewrite(c::ScatterContext, node::Union(CallNode,RefNode))
-    args = Node[node.args[1], {scatter_input(c, arg) | arg in node.args[2:end]}...]
+    newnode = Node(node.val, {node.args[1], 
+                   {scatter_input(c, arg) | arg in node.args[2:end]}...})
+    newnode.name = node.name
+    newnode
 end
 rewrite(::ScatterContext, node::Node) = node
 
 function scatter_input(c::ScatterContext, node::SymNode) 
+#    print("scatter_input: node = ", node)
     RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
 end
 scatter_input(c::ScatterContext, node::Node) = node
