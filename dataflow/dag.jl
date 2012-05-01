@@ -8,7 +8,8 @@ abstract Expression
 
 type Node{T<:Expression}
     val::T
-    args::Vector{Node}
+#    args::Vector{Node}
+    args
 
     name::Union(Symbol,Nothing)
 
@@ -29,12 +30,14 @@ type Node{T<:Expression}
     # Used to forward typealias constructors to Node(T, args...)
 #    Node(targs...) = Node(T, targs...)
     function Node(targs...)
-        println("Node{$T}($targs)")
+        #println("Node{$T}($targs)")
         Node(T, targs...)
     end
 end
 
 Node{T<:Expression}(val::T, args...) = Node{T}(val, args...)
+
+typealias Nodes Vector{Node}
 
 
 # -- expressions --------------------------------------------------------------
@@ -124,7 +127,7 @@ type DAG
     bottom::Node
 
     symnode_names::SymNodeTable  # kind => used SymNode names
-    order::Vector{Node}          # the nodes, topsorted from sources to sinks
+    order::Nodes                 # the nodes, topsorted from sources to sinks
 
 #     DAG() = new(ActionNode[], NoNode(), SymNodeTable(), Node[])
     DAG() = new(ActionNode[], NoNode())

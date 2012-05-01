@@ -30,9 +30,9 @@ function tangle(code)
 end
 
 
-#tangle(c::TangleContext, exprs::Vector) = convert(Vector{Node}, [ tangle(c, ex) | ex in exprs ])
+#tangle(c::TangleContext, exprs::Vector) = convert(Nodes, [ tangle(c, ex) | ex in exprs ])
 function tangle(c::TangleContext, exprs::Vector) 
-    nodes = convert(Vector{Node}, [ tangle(c, ex) | ex in exprs ])
+    nodes = convert(Nodes, [ tangle(c, ex) | ex in exprs ])
     # println("\nnodes = $nodes")
     # println("T=$(typeof(nodes))")
     nodes
@@ -142,7 +142,7 @@ function untangle(dag::DAG)
     exprs
 end
 
-untangle(nodes::Vector{Node}, fe::Bool) = {untangle(node, fe) | node in nodes}
+untangle(nodes::Nodes, fe::Bool) = {untangle(node, fe) | node in nodes}
 untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
 function untangle(node::OpNode, force_expand::Bool)
     if force_expand || is(node.name, nothing)

@@ -51,16 +51,17 @@ function rewrite_node(context::RewriteContext, node::Node)
     # rewrite the node
 
     # todo: remove!
-    global __node = node
-    node  = __node
+#    global __node = node
+#    node  = __node
 
-    println("rewrite_node:")
-    println("\t node.val         = \t", typeof(node.val))
-    println("\t typeof(node)     = \t", typeof(node))
-    println("\t typeof(node.val) = \t", typeof(node.val))
-    println("\t isa(node, SymNode)) =\t", isa(node, SymNode))
-    println("\t isa(node, TupleNode)) =\t", isa(node, AssignNode))
-    println("\t node             = \t", node)    
+#     println("rewrite_node:")
+#     println("\t node             = \t", node)    
+#     println("\t node.val         = \t", typeof(node.val))
+#     println("\t typeof(node)     = \t", typeof(node))
+#     println("\t typeof(node.val) = \t", typeof(node.val))
+#     println("\t isa(node, SymNode)) =\t", isa(node, SymNode))
+#     println("\t isa(node, TupleNode)) =\t", isa(node, AssignNode))
+
 
 
     subsnode = Node(node.val, args)
