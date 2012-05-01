@@ -9,21 +9,11 @@ typealias SymbolTable Dict{Symbol,Node}
 type TangleContext  # <: Context
     symbols::SymbolTable                        # current symbol bindings
     dag::DAG
-    #last_actions::Vector{ActionNode}
 
-#    TangleContext() = new(SymbolTable(), DAG(), ActionNode[])
     TangleContext() = new(SymbolTable(), DAG())
 end
 
 emit(c::TangleContext, node::Node) = emit(c.dag, node)
-#emit(c::TangleContext, node::Node) = push(c.dag.order, node)
-# function emit(c::TangleContext, node::Node)
-#     push(c.dag.order, node)
-#     if isa(node, SymNode)
-#         names = @setdefault c.symnode_names[node.val.kind] Symbol[]
-#         push(names, node.val.name)
-#     end
-# end
 
 
 # == tangle ===================================================================
@@ -32,8 +22,7 @@ function tangle(code)
     context = TangleContext()
     value = tangle(context, code)
     dag = context.dag
-    dag.value = value
-    dag.bottom = TupleNode(dag.bottom_actions..., value)
+    set_value!(dag, value)
     if is((value::Node).name, nothing)
         value.name = :value
     end
@@ -146,8 +135,9 @@ function untangle(dag::DAG)
             push(exprs, ex)
         end
     end
-    if !is(dag.order[end], dag.value)
-        push(exprs, dag.value.name)
+    value = get_value(dag)
+    if !is(dag.order[end], value)
+        push(exprs, value.name)
     end
     exprs
 end

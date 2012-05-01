@@ -112,15 +112,14 @@ end
 typealias SymNodeTable Dict{Symbol,Vector{Symbol}}
 
 type DAG
-    value::Node
     bottom_actions::Vector{ActionNode}
     bottom::Node
 
     symnode_names::SymNodeTable  # kind => used SymNode names
     order::Vector{Node}          # the nodes, topsorted from sources to sinks
 
-#     DAG() = new(NoNode(), ActionNode[], NoNode(), SymNodeTable(), Node[])
-    DAG() = new(NoNode(), ActionNode[], NoNode())
+#     DAG() = new(ActionNode[], NoNode(), SymNodeTable(), Node[])
+    DAG() = new(ActionNode[], NoNode())
 end
 
 # __em_node = nothing # debug
@@ -145,3 +144,9 @@ function emit_to_order(dag::DAG, node::ANY)
         push(names, node.val.name)
     end
 end
+
+function set_value!(dag::DAG, value::Node)
+    dag.bottom = TupleNode(dag.bottom_actions..., value)
+end
+
+get_value(dag::DAG) = dag.bottom.args[end]
