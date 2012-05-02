@@ -1,10 +1,15 @@
 load("tangle.jl")
 load("transforms.jl")
 
+# code = quote
+#     A = B.*C + D[j,i]
+#     dest[2i, 2j] = A
+#     dest2[...] = 2A
+# end
 code = quote
-    A = B.*C + D[j,i]
-    dest[2i, 2j] = A
-    dest2[...] = 2A
+    A = B.*C + D
+    dest1[...] = A
+    dest2[...] = A + C
 end
 
 value, dag, context = tangle(code)

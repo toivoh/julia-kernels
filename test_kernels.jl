@@ -9,10 +9,27 @@ C = [1 0 1
 D = [ 0  0  0
      10 10 10]
 
+# code = quote
+#     A = B.*C + D
+#     dest1[...] = A
+#     dest2[...] = A + C
+# end
+
+# value, dag, context = tangle(code)
+# dag2 = scattered(dag)
+# dag3 = count_uses(dag2)
+# order!(dag3)
+# flat_code = untangle(dag3)
+
+# arguments = append(get(dag3.symnode_names, :output, Symbol{}),
+#                    get(dag3.symnode_names, :input,  Symbol{}))
+ 
+# fdef, arguments = make_kernel(code, 2)
+
 @kernel 2 begin
     A = B.*C + D
-    dest1[] = A
-    dest2[] = A + C
+    dest1[...] = A
+    dest2[...] = A + C
 end
 
 function f(B,C,D)
@@ -58,7 +75,7 @@ function timeit(n::Int)
 
     print("Kernel:             "); tic()
     @kernel 2 begin
-        A[] = B.*C + D
+        A[...] = B.*C + D
     end
     tk = toc()
     (ta, tmk, tfor, tk)
