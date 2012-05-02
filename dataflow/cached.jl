@@ -13,6 +13,9 @@ type Cache <: Context
     Cache() = new(ResultsCache())
 end
 
+type Unfinished; end
+unfinished = Unfinished()
+
 
 const doublecolon = @eval (:(x::Int)).head
 
@@ -46,6 +49,7 @@ function wrap_cached(func::Expr)
 
     # extract argument names tuple for args[2:end]
     restargs = { peel_typeassert(arg) | arg in signature.args[3:end] }
+    allargs = expr(:tuple, context, restargs...)
     restargs = expr(:tuple, restargs)
 
     return_type = (if is_expr(body, doublecolon)
@@ -68,9 +72,15 @@ function wrap_cached(func::Expr)
         # return cached result if available
         restargs = ($restargs)
         if has(cache, restargs)
-            return cache[restargs]::($return_type)
+            value = cache[restargs]
+            if is(value, unfinished)
+                error("Reentered evalutation of @cached", ($string(signature)),
+                      "\nwith arguments = ", ($allargs))
+            end
+            return value::($return_type)
         end
-        
+
+        cache[restargs] = unfinished
         # evaluate original body, store result and return
         value = let
             ($body)  # ::($return_type) that's where we took it from
