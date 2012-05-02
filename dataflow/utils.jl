@@ -2,10 +2,32 @@
 quote_expr(ex) = expr(:quote, ex)
 
 is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
-function expect_expr(ex, head::Symbol)
-    if !is_expr(ex, head)
-        error("expected expr(:$head,...), found $ex")
+
+macro expect(args...)
+    if !(1 <= length(args) <= 2)
+        error("\n@expect: expected one or two arguments")
     end
+    predicate = args[1]
+    if length(args) >= 2
+        message = args[2]
+
+        if is_expr(message, :tuple)
+            msg_parts = message.args
+        else
+            msg_parts = {message}
+        end
+    else
+        msg_parts = {"Expected: ", string(predicate)}
+    end    
+    :($predicate ? nothing : $(expr(:call, :error, msg_parts...)))
+end
+
+macro show(ex)
+    :(println(($string(ex)), " = ", $ex) )
+end
+
+function expect_expr(ex, head::Symbol)
+    @expect is_expr(ex, head) "expected expr(:$head,...), found $ex"
 end
 
 # macro setdefault(args...)
@@ -40,29 +62,29 @@ const doublecolon = @eval (:(x::Int)).head
 
 peel_typeassert(ex::Symbol) = ex
 function peel_typeassert(ex::Expr)
-    if (ex.head == doublecolon) && length(ex.args) == 2
-        return (ex.args[1])::Symbol
-    else
-        error("expected variable declaration, got $ex")
-    end
+    @expect ((ex.head == doublecolon) && length(ex.args) == 2) (
+        "expected variable declaration, got $ex")
+    return (ex.args[1])::Symbol
 end
+peel_typeassert(x::Any) = error("expected variable declaration, got $x")
 
 function wrap_cached(func::Expr)
+    # extract signature and body
     if (func.head == :function) || (func.head == :(=))
         signature = func.args[1]
         body = func.args[2]
     else
         error("\n@cached: don't know how to handle func.head = $(func.head)")
     end
-    if !is_expr(signature, :call)
-        error("\n@cached: don't know how to handle signature = $signature")
-    end
+    @expect is_expr(signature, :call) (
+        "\n@cached: don't know how to handle signature = $signature")
+    @expect length(signature.args) >= 2 (
+        "\n@cached $signature: need a first argument (of type C <: Context")
 
+    # split first argument (context) into name and type
     context_decl = signature.args[2]
-    if !is_expr(context_decl, doublecolon)
-        error("\n@cached $signature: first argument should be of type C <: Context, got ",
-        string(context_decl))
-    end    
+    @expect is_expr(context_decl, doublecolon) ("\n@cached $signature: ",
+        "first argument should be of type C <: Context, got ", context_decl)
     context = peel_typeassert(context_decl)
     context_type = context_decl.args[2]
 

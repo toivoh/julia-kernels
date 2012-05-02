@@ -25,10 +25,12 @@ end
 
 c = PlainContext()
 
-println(cr(c,1), " ", cr2(c,1))
-println(cr(c,2), " ", cr2(c,2))
-println(cr(c,1), " ", cr2(c,1))
+println()
+@show cr(c,1), cr2(c,1)
+@show cr(c,2), cr2(c,2)
+@show cr(c,1), cr2(c,1)
 
 println()
-println(cr(c,(2,3)))
-println(cr(c,"hej")
+@show cr(c,(2,3))
+@show cr(c,"hej")
+        
