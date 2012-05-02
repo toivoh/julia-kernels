@@ -27,22 +27,22 @@ function peel_typeassert(ex::Expr)
 end
 peel_typeassert(x::Any) = error("expected variable declaration, got $x")
 
-function wrap_cached(func::Expr)
+function wrap_cachedfun(func::Expr)
     # extract signature and body
     if (func.head == :function) || (func.head == :(=))
         signature = func.args[1]
         body = func.args[2]
     else
-        error("\n@cached: don't know how to handle func.head = $(func.head)")
+        error("\n@cachedfun: don't know how to handle func.head = $(func.head)")
     end
     @expect is_expr(signature, :call) (
-        "\n@cached: don't know how to handle signature = $signature")
+        "\n@cachedfun: don't know how to handle signature = $signature")
     @expect length(signature.args) >= 2 (
-        "\n@cached $signature: need a first argument (of type C <: Context")
+        "\n@cachedfun $signature: need a first argument (of type C <: Context")
 
     # split first argument (context) into name and type
     context_decl = signature.args[2]
-    @expect is_expr(context_decl, doublecolon) ("\n@cached $signature: ",
+    @expect is_expr(context_decl, doublecolon) ("\n@cachedfun $signature: ",
         "first argument should be of type C <: Context, got ", context_decl)
     context = peel_typeassert(context_decl)
     context_type = context_decl.args[2]
@@ -74,7 +74,7 @@ function wrap_cached(func::Expr)
         if has(cache, restargs)
             value = cache[restargs]
             if is(value, unfinished)
-                error("Reentered evalutation of @cached", ($string(signature)),
+                error("Reentered evalutation of @cachedfun", ($string(signature)),
                       "\nwith arguments = ", ($allargs))
             end
             return value::($return_type)
@@ -93,7 +93,7 @@ function wrap_cached(func::Expr)
     newfun = expr(:function, signature, body)
 
     # add a check to see that the context argument type <: Context
-    context_type_err_msg = strcat("\@cached $signature: first argument should",
+    context_type_err_msg = strcat("\@cachedfun $signature: first argument should",
         " be of type C <: Context, got ", string(context_decl))
     quote
         if !($context_type <: $Context)
@@ -103,6 +103,6 @@ function wrap_cached(func::Expr)
     end
 end
 
-macro cached(func)
-    wrap_cached(func)
+macro cachedfun(func)
+    wrap_cachedfun(func)
 end
