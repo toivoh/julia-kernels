@@ -25,16 +25,18 @@ untangled = untangle(context.dag)
 print_list(untangled)
 
 
-# dag2, c2 = rewrite_dag(dag, ScatterVisitor())
-# order!(dag2)
-# println("\ndag2 untangled:")
+# dag2 = scattered(dag)
+# println("\nscattered (untangled):")
 # print_untangled(dag2)
 
-dag2 = scattered(dag)
+# dag3 = count_uses(dag2)
+# println("\nfanout nodes named (untangled):")
+# print_untangled(dag3)
+
+bottom2 = scattered(dag.bottom)
 println("\nscattered (untangled):")
-print_untangled(dag2)
+print_untangled(DAG(bottom2))
 
-dag3 = count_uses(dag2)
+bottom3 = count_uses(bottom2)
 println("\nfanout nodes named (untangled):")
-print_untangled(dag3)
-
+print_untangled(DAG(bottom3))

@@ -30,50 +30,52 @@ function order_node(context::OrderContext, node::Node)
 end
 
 
-# -- New Scatterer ------------------------------------------------------------
+# -- evaluation ---------------------------------------------------------------
 
-function scattered(c::Cache, node::SymNode)
-    if node.val.name == :(... )
-        # todo: eliminate duplicates!
-        EllipsisNode(SymNode(:indvars, :local))
-    else
-        return RefNode(node, EllipsisNode(SymNode(:indvars, :local)))
-    end
+type Context{C}
+    c::C
+    cache::Cache
+    
+    Context(c::C) = new(c, Cache())
+    Context() = new(C(), Cache())
 end
-function scattered(c::Cache, node::Union(CallNode,RefNode))
-    args = {node.args[1]::SymNode, 
-            {(@cached scattered(c, arg)) | arg in node.args[2:end]}... }
-    Node(node, args)
-end
-function scattered(c::Cache, node::Node)
-    Node(node, { (@cached scattered(c, arg)) | arg in node.args } )
-end
+Context{C}(c::C) = Context{C}(c)
 
-function scattered(dag::DAG)
-    context = Cache()
-    bottom = scattered(context, dag.bottom)
-    DAG(bottom)
+cacheentry(f::Function, c::Context, args...) = cacheentry(f, c.cache, args...)
+
+evaluate(c::Context, ns::Nodes) = { (@cached evaluate(c, node))|node in ns }
+evaluate(c::Context, node::Node) = Node(node, (@cached evaluate(c, node.args)))
+
+
+# -- scattering fusion --------------------------------------------------------
+
+type Scatterer; end
+typealias ScatterContext Context{Scatterer}
+
+scattered(node::Node) = evaluate(ScatterContext(), node)
+function evaluate(c::ScatterContext, node::SymNode)
+    # todo: eliminate duplicate indvars?
+    ellipsis = EllipsisNode(SymNode(:indvars, :local))
+    node.val.name == :(... ) ? ellipsis : RefNode(node, ellipsis)
+end
+function evaluate(c::ScatterContext, node::Union(CallNode,RefNode))
+    Node(node, { node.args[1]::SymNode, evaluate(c, node.args[2:end])... })
 end
 
 
 # -- Count node uses ----------------------------------------------------------
 
-function count_uses(c::Cache, node::Node)
-    args = { (@cached count_uses(c, arg)) | arg in node.args }
-    newnode = Node(node, args)    
-    newnode.num_uses = 0
+type UseCounter; end
+typealias UseCountContext Context{UseCounter}
 
-    for arg in args
+count_uses(node::Node) = evaluate(UseCountContext(), node)
+function evaluate(c::UseCountContext, node::Node)
+    node = Node(node, evaluate(c, node.args))
+    for arg in node.args
         nu = (arg.num_uses += 1)
         if ((nu == 2) && (is(arg.name, nothing)) && is_cachable(arg))
             arg.name = gensym()
         end
     end
-    newnode
-end
-
-function count_uses(dag::DAG)
-    context = Cache()
-    bottom = count_uses(context, dag.bottom)
-    DAG(bottom)    
+    node
 end

@@ -52,8 +52,9 @@ end
 
 function flatten_kernel_tangle(code::Expr)
     value, dag, context = tangle(code)
-    dag2 = scattered(dag)
-    dag3 = count_uses(dag2)
+    bottom2 = scattered(dag.bottom)
+    bottom3 = count_uses(bottom2)
+    dag3 = DAG(bottom3)
     order!(dag3)
     flat_code = untangle(dag3)
 
