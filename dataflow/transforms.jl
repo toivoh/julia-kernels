@@ -33,7 +33,11 @@ end
 # -- New Scatterer ------------------------------------------------------------
 
 @cached function scattered(c::Context, node::SymNode)
-    RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
+    if node.val.name == :(... )
+        EllipsisNode(SymNode(:indvars, :input))
+    else
+        return RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
+    end
 end
 @cached function scattered(c::Context, node::Union(CallNode,RefNode))
     args = {node.args[1]::SymNode, 

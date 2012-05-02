@@ -4,7 +4,7 @@ load("transforms.jl")
 code = quote
     A = B.*C + D[j,i]
     dest[2i, 2j] = A
-    dest2[] = 2A
+    dest2[...] = 2A
 end
 
 value, dag, context = tangle(code)
