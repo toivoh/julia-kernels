@@ -1,5 +1,9 @@
 
-load("flatten.jl")
+#load("flatten.jl")
+
+load("tangle.jl")
+load("transforms.jl")
+
 load("staged.jl")
 
 quote_expr(ex) = expr(:quote, ex)
@@ -46,20 +50,34 @@ function flatten_kernel(code::Expr)
     flat_code, arguments
 end
 
-function make_kernel(nd, code)
-    # flatten the code
-    flat_code, arguments = flatten_kernel(code)
+function flatten_kernel_tangle(code::Expr)
+    value, dag, context = tangle(code)
+    dag2 = scattered(dag)
+    dag3 = count_uses(dag2)
+    order!(dag3)
+    flat_code = untangle(dag3)
+
+    arguments = append(get(dag3.symnode_names, :output, Symbol{}),
+                       get(dag3.symnode_names, :input,  Symbol{}))
+                       
+    flat_code, arguments
+end
+
+function make_kernel(code, nd)
+    flat_code, arguments = flatten_kernel_tangle(code)
+    println("arguments = ", arguments)
 
     #indvars = gensym(32) # just some number of dims that should be enough
     indvars = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
-    
-    staged = true
-    fdef = wrap_kernel(arguments, flat_code, indvars[1:nd], staged)
-    kernel = eval(fdef)
 
-    expr(:call, kernel, arguments...)
+    staged = true
+
+    fdef = wrap_kernel(arguments, flat_code, indvars[1:nd], staged)
+    fdef, arguments
 end
 
 macro kernel(nd, code)
-    make_kernel(nd, code)
+    fdef, arguments = make_kernel(code, nd)
+    kernel = eval(fdef)
+    expr(:call, kernel, arguments...)    
 end
