@@ -120,7 +120,7 @@ toexpr(ex::RefEx,      args...) = expr(:ref,   args...)
 toexpr(ex::TupleEx,    args...) = expr(:tuple, args...)
 toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
 
-toexpr(ex::AssignEx,   args...) = expr(:(=),   args...)
+toexpr(ex::AssignEx,   args...) = expr(:(=),   args[1:2]...)
 
 
 function untangle(dag::DAG)
@@ -146,7 +146,7 @@ untangle(nodes::Nodes, fe::Bool) = {untangle(node, fe) | node in nodes}
 untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
 function untangle(node::OpNode, force_expand::Bool)
     if force_expand || is(node.name, nothing)
-        return toexpr(node.val, untangle(node.args))
+        return toexpr(node.val, untangle(node.args)...)
     else
         return node.name
     end
