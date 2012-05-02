@@ -174,4 +174,4 @@ function print_context(context::TangleContext)
     for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end 
 end
 
-print_untangled(dag::DAG) = print_list(untangle(dag))
+print_untangled(dag::DAG) = (order!(dag); print_list(untangle(dag)))
