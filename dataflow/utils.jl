@@ -1,4 +1,5 @@
 
+quote_expr(ex) = expr(:quote, ex)
 
 is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
 function expect_expr(ex, head::Symbol)
@@ -35,7 +36,7 @@ end
 abstract Context
 typealias Cache Dict{Symbol,Dict}
 
-doublecolon = @eval (:(x::Int)).head
+const doublecolon = @eval (:(x::Int)).head
 
 peel_typeassert(ex::Symbol) = ex
 function peel_typeassert(ex::Expr)
@@ -47,21 +48,29 @@ function peel_typeassert(ex::Expr)
 end
 
 function wrap_cached(func::Expr)
-    if func.head == :function
+    if (func.head == :function) || (func.head == :(=))
         signature = func.args[1]
         body = func.args[2]
     else
-        error("cached: don't know how to handle func.head = $(func.head)")
+        error("\n@cached: don't know how to handle func.head = $(func.head)")
+    end
+    if !is_expr(signature, :call)
+        error("\n@cached: don't know how to handle signature = $signature")
     end
 
-    context = signature.args[2]
-    context = peel_typeassert(context)
-    # todo: check that context is ::Context?
+    context_decl = signature.args[2]
+    if !is_expr(context_decl, doublecolon)
+        error("\n@cached $signature: first argument should be of type C <: Context, got ",
+        string(context_decl))
+    end    
+    context = peel_typeassert(context_decl)
+    context_type = context_decl.args[2]
+
     restargs = { peel_typeassert(arg) | arg in signature.args[3:end] }
     restargs = expr(:tuple, restargs)
 
     fname = signature.args[1]
-    methodkey = gensym(string(fname))
+    methodkey = quote_expr(gensym(string(fname)))
 
     body = quote
         # find result cache for this method in context
@@ -73,17 +82,31 @@ function wrap_cached(func::Expr)
 
         # return cached result if available
         restargs = ($restargs)
-        if has(mcache, restargs)
-            return mcache[restargs]
+        if has(cache, restargs)
+            return cache[restargs]
         end
         
         # evaluate original body, store result and return
         value = let
             ($body)
         end
-        mcache[restargs] = value
+        cache[restargs] = value
         value
     end
 
-    expr(:function, signature, body)
+    newfun = expr(:function, signature, body)
+
+    context_type_err_msg = strcat("\@cached $signature: first argument should be ",
+        "of type C <: Context, got ",
+        string(context_decl))
+    quote
+        if !($context_type <: $Context)
+            error($context_type_err_msg)
+        end
+        $newfun
+    end
+end
+
+macro cached(func)
+    wrap_cached(func)
 end
