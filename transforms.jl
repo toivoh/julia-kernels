@@ -32,7 +32,7 @@ end
 
 # -- New Scatterer ------------------------------------------------------------
 
-@cachedfun function scattered(c::Context, node::SymNode)
+function scattered(c::Cache, node::SymNode)
     if node.val.name == :(... )
         # todo: eliminate duplicates!
         EllipsisNode(SymNode(:indvars, :local))
@@ -40,13 +40,13 @@ end
         return RefNode(node, EllipsisNode(SymNode(:indvars, :local)))
     end
 end
-@cachedfun function scattered(c::Context, node::Union(CallNode,RefNode))
+function scattered(c::Cache, node::Union(CallNode,RefNode))
     args = {node.args[1]::SymNode, 
-            {scattered(c, arg) | arg in node.args[2:end]}... }
+            {(@cached scattered(c, arg)) | arg in node.args[2:end]}... }
     Node(node, args)
 end
-@cachedfun function scattered(c::Context, node::Node)
-    Node(node, { scattered(c, arg) | arg in node.args } )
+function scattered(c::Cache, node::Node)
+    Node(node, { (@cached scattered(c, arg)) | arg in node.args } )
 end
 
 function scattered(dag::DAG)
@@ -58,19 +58,17 @@ end
 
 # -- Count node uses ----------------------------------------------------------
 
-@cachedfun function count_uses(c::Context, node::Node)
-    args = { count_uses(c, arg) | arg in node.args }
+function count_uses(c::Cache, node::Node)
+    args = { (@cached count_uses(c, arg)) | arg in node.args }
     newnode = Node(node, args)    
-#     newnode.uses = {}#WeakRef[]
     newnode.num_uses = 0
 
     for arg in args
         nu = (arg.num_uses += 1)
-        if ((nu == 2) && (is(arg.name, nothing)) && !isa(arg, TerminalNode) && !isa(arg, EllipsisNode))
+        if ((nu == 2) && (is(arg.name, nothing)) && is_cachable(arg))
             arg.name = gensym()
         end
     end
-#     for arg in args;  push(arg.uses, WeakRef(newnode));  end
     newnode
 end
 

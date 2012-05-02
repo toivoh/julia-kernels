@@ -1,108 +1,58 @@
 
-#load("utils.jl")
+load("utils.jl")
 
-# type for caching results
-typealias ResultsCache Dict{Symbol,Dict}
-
-# type for caching context: should have a field cache::ResultsCache
-abstract Context
-
-# context with only cache member
-type Cache <: Context
-    cache::ResultsCache
-    Cache() = new(ResultsCache())
-end
+const doublecolon = @eval (:(x::Int)).head
 
 type Unfinished; end
 unfinished = Unfinished()
 
-
-const doublecolon = @eval (:(x::Int)).head
-
-peel_typeassert(ex::Symbol) = ex
-function peel_typeassert(ex::Expr)
-    @expect ((ex.head == doublecolon) && length(ex.args) == 2) (
-        "expected variable declaration, got $ex")
-    return (ex.args[1])::Symbol
+type DictEntry{K,V}
+    dict::Dict{K,V}
+    key::K
 end
-peel_typeassert(x::Any) = error("expected variable declaration, got $x")
+DictEntry{K,V}(dict::Dict{K,V}, key) = DictEntry{K,V}(dict, key)
 
-function wrap_cachedfun(func::Expr)
-    # extract signature and body
-    if (func.head == :function) || (func.head == :(=))
-        signature = func.args[1]
-        body = func.args[2]
+present(entry::DictEntry)   = has(entry.dict, entry.key)
+ref(entry::DictEntry)       = entry.dict[entry.key]
+assign(entry::DictEntry, x) = (entry.dict[entry.key] = x)
+
+typealias Cache Dict{Function, Dict}
+
+function cacheentry(f::Function, c::Cache, args...)
+    DictEntry((@setdefault c[f] Dict()), args)
+end
+
+
+function cached_call(call)
+    fullcall = call
+    if is_expr(call, doublecolon)
+        @expect length(call.args) == 2
+        returntype = call.args[2]
+        call = call.args[1]
     else
-        error("\n@cachedfun: don't know how to handle func.head = $(func.head)")
+        returntype = Any
     end
-    @expect is_expr(signature, :call) (
-        "\n@cachedfun: don't know how to handle signature = $signature")
-    @expect length(signature.args) >= 2 (
-        "\n@cachedfun $signature: need a first argument (of type C <: Context")
-
-    # split first argument (context) into name and type
-    context_decl = signature.args[2]
-    @expect is_expr(context_decl, doublecolon) ("\n@cachedfun $signature: ",
-        "first argument should be of type C <: Context, got ", context_decl)
-    context = peel_typeassert(context_decl)
-    context_type = context_decl.args[2]
-
-    # extract argument names tuple for args[2:end]
-    restargs = { peel_typeassert(arg) | arg in signature.args[3:end] }
-    allargs = expr(:tuple, context, restargs...)
-    restargs = expr(:tuple, restargs)
-
-    return_type = (if is_expr(body, doublecolon)
-        @expect length(body.args) == 2; body.args[2]
-    else; Any; end)
-
-    # create key to identify this method in the cache
-    fname = signature.args[1]
-    methodkey = quote_expr(gensym(string(fname)))
-
-    # wrap the body with lookup and storage into cache
-    body = quote
-        # find result cache for this method in context
-        mcache = ($context).cache
-        if !has(mcache, ($methodkey))
-            mcache[($methodkey)] = Dict()
-        end
-        cache = mcache[($methodkey)]
-
-        # return cached result if available
-        restargs = ($restargs)
-        if has(cache, restargs)
-            value = cache[restargs]
-            if is(value, unfinished)
-                error("Reentered evalutation of @cachedfun", ($string(signature)),
-                      "\nwith arguments = ", ($allargs))
-            end
-            return value::($return_type)
-        end
-
-        cache[restargs] = unfinished
-        # evaluate original body, store result and return
-        value = let
-            ($body)  # ::($return_type) that's where we took it from
-        end
-        cache[restargs] = value
-        value
-    end
-
-    # new function definition
-    newfun = expr(:function, signature, body)
-
-    # add a check to see that the context argument type <: Context
-    context_type_err_msg = strcat("\@cachedfun $signature: first argument should",
-        " be of type C <: Context, got ", string(context_decl))
+    @expect is_expr(call, :call)
     quote
-        if !($context_type <: $Context)
-            error($context_type_err_msg)
+        let entry = cacheentry($call.args...) # args[1] = the function
+            local value
+            if present(entry)
+                value = entry[]
+                if is(value, unfinished)
+                    error("Reentered evalutation of ( @cached ", 
+                          ($string(fullcall)), " )\nwith arguments = ", 
+                          ($expr(:tuple, call.args[2:end])))
+                end
+                value::($returntype)
+            else
+                entry[] = unfinished
+                entry[] = value = ($fullcall)
+                value
+            end
         end
-        $newfun
     end
 end
 
-macro cachedfun(func)
-    wrap_cachedfun(func)
+macro cached(call)
+    cached_call(call)
 end
