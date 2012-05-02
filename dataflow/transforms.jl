@@ -1,5 +1,5 @@
 
-
+load("cached.jl")
 #load("dag.jl")
 
 # == ordering =================================================================
@@ -30,70 +30,47 @@ function order_node(context::OrderContext, node::Node)
 end
 
 
-# == RewriteContext ===========================================================
+# -- New Scatterer ------------------------------------------------------------
 
-type RewriteContext{V}  # <: Context
-    results::Dict{Node,Node}
-    visitor::V
-
-    RewriteContext(visitor::V) = new(Dict{Node,Node}(),visitor)
-end
-
-RewriteContext{V}(visitor::V) = RewriteContext{V}(visitor)
-
-
-function rewrite_node(context::RewriteContext, node::Node)
-    if has(context.results, node)
-        return context.results[node]
-    end
-    # rewrite node args
-    args = {rewrite_node(context, arg) | arg in node.args}
-    # rewrite the node
-
-    # todo: remove!
-#    global __node = node
-#    node  = __node
-
-#     println("rewrite_node:")
-#     println("\t node             = \t", node)    
-#     println("\t node.val         = \t", typeof(node.val))
-#     println("\t typeof(node)     = \t", typeof(node))
-#     println("\t typeof(node.val) = \t", typeof(node.val))
-#     println("\t isa(node, SymNode)) =\t", isa(node, SymNode))
-#     println("\t isa(node, TupleNode)) =\t", isa(node, AssignNode))
-
-
-
-    subsnode = Node(node.val, args)
-    subsnode.name = node.name
-    newnode = rewrite(context, subsnode)
-    # store the results and return
-    context.results[node] = newnode
-    newnode
-end
-
-function rewrite_dag(dag::DAG, visitor)
-    context = RewriteContext(visitor)
-    bottom = rewrite_node(context, dag.bottom)
-    DAG(bottom), context
-end
-
-
-# -- Scatterer ----------------------------------------------------------------
-
-type ScatterVisitor; end
-typealias ScatterContext RewriteContext{ScatterVisitor}
-
-function rewrite(c::ScatterContext, node::Union(CallNode,RefNode))
-    newnode = Node(node.val, {node.args[1], 
-                   {scatter_input(c, arg) | arg in node.args[2:end]}...})
-    newnode.name = node.name
-    newnode
-end
-rewrite(::ScatterContext, node::Node) = node
-
-function scatter_input(c::ScatterContext, node::SymNode) 
-#    print("scatter_input: node = ", node)
+@cached function scattered(c::Context, node::SymNode)
     RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
 end
-scatter_input(c::ScatterContext, node::Node) = node
+@cached function scattered(c::Context, node::Union(CallNode,RefNode))
+    args = {node.args[1]::SymNode, 
+            {scattered(c, arg) | arg in node.args[2:end]}... }
+    Node(node, args)
+end
+@cached function scattered(c::Context, node::Node)
+    Node(node, { scattered(c, arg) | arg in node.args } )
+end
+
+function scattered(dag::DAG)
+    context = Cache()
+    bottom = scattered(context, dag.bottom)
+    DAG(bottom)
+end
+
+
+# -- Count node uses ----------------------------------------------------------
+
+@cached function count_uses(c::Context, node::Node)
+    args = { count_uses(c, arg) | arg in node.args }
+    newnode = Node(node, args)    
+#     newnode.uses = {}#WeakRef[]
+    newnode.num_uses = 0
+
+    for arg in args
+        nu = (arg.num_uses += 1)
+        if (nu == 2) && (is(arg.name, nothing)) && !isa(arg, TerminalNode)
+            arg.name = gensym()
+        end
+    end
+#     for arg in args;  push(arg.uses, WeakRef(newnode));  end
+    newnode
+end
+
+function count_uses(dag::DAG)
+    context = Cache()
+    bottom = count_uses(context, dag.bottom)
+    DAG(bottom)    
+end

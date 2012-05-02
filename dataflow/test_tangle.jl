@@ -20,7 +20,16 @@ untangled = untangle(context.dag)
 print_list(untangled)
 
 
-dag2, c2 = rewrite_dag(dag, ScatterVisitor())
-order!(dag2)
-println("\ndag2 untangled:")
+# dag2, c2 = rewrite_dag(dag, ScatterVisitor())
+# order!(dag2)
+# println("\ndag2 untangled:")
+# print_untangled(dag2)
+
+dag2 = scattered(dag)
+println("\nscattered (untangled):")
 print_untangled(dag2)
+
+dag3 = count_uses(dag2)
+println("\nfanout nodes named (untangled):")
+print_untangled(dag3)
+
