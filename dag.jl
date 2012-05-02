@@ -124,6 +124,13 @@ function check_args(node::AssignNode)
     allp(arg->isa(arg, ActionNode), get_preevents(node))
 end
 
+# -- properties ---------------------------------------------------------------
+
+# may the node's value be stored in an intermediate variable?
+is_cachable{T<:Terminal}(::Node{T})  = false  # no point to cache a terminal
+is_cachable(::EllipsisNode)          = false  # storage changes interpretation
+is_cachable{T<:Operation}(::Node{T}) = true
+
 
 # == DAG ======================================================================
 
@@ -170,5 +177,3 @@ function emit_to_order(dag::DAG, node::ANY)
         push(names, node.val.name)
     end
 end
-
-
