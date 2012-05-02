@@ -34,9 +34,10 @@ end
 
 @cached function scattered(c::Context, node::SymNode)
     if node.val.name == :(... )
-        EllipsisNode(SymNode(:indvars, :input))
+        # todo: eliminate duplicates!
+        EllipsisNode(SymNode(:indvars, :local))
     else
-        return RefNode(node, EllipsisNode(SymNode(:indvars, :input)))
+        return RefNode(node, EllipsisNode(SymNode(:indvars, :local)))
     end
 end
 @cached function scattered(c::Context, node::Union(CallNode,RefNode))
@@ -65,7 +66,7 @@ end
 
     for arg in args
         nu = (arg.num_uses += 1)
-        if (nu == 2) && (is(arg.name, nothing)) && !isa(arg, TerminalNode)
+        if ((nu == 2) && (is(arg.name, nothing)) && !isa(arg, TerminalNode) && !isa(arg, EllipsisNode))
             arg.name = gensym()
         end
     end
