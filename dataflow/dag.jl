@@ -12,12 +12,13 @@ type Node{T<:Expression}
     args
 
     name::Union(Symbol,Nothing)
+    num_uses::Int
 
     # raw Node constructors
     function Node(val::T, args) 
         if !isa(args, Vector{Node});   args = Node[args...];   end
 
-        node = new(val, Node[args...], nothing)
+        node = new(val, Node[args...], nothing, 0)
         if !check_args(node)
             error("Invalid node arguments for node type: node = $node")
         end
@@ -35,7 +36,13 @@ type Node{T<:Expression}
     end
 end
 
-Node{T<:Expression}(val::T, args...) = Node{T}(val, args...)
+Node{T<:Expression}(val::T, cargs...) = Node{T}(val, cargs...)
+
+function Node{T<:Expression}(node::Node{T}, args) 
+    newnode = Node(node.val, args)
+    newnode.name = node.name
+    newnode
+end
 
 typealias Nodes Vector{Node}
 
