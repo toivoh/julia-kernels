@@ -1,10 +1,6 @@
 
-load("utils.jl")
+load("cache.jl")
 
-type PlainContext <: Context
-    cache::Cache
-    PlainContext() = new(Cache())
-end
 
 # code = :(function f(c::Context, x::Int)
 #     x^2
@@ -23,7 +19,7 @@ end
 end
 
 
-c = PlainContext()
+c = Cache()
 
 println()
 @show cr(c,1), cr2(c,1)
