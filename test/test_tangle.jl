@@ -1,5 +1,6 @@
 load("tangle.jl")
 load("transforms.jl")
+load("julia_backend.jl")
 
 # code = quote
 #     A = B.*C + D[j,i]
@@ -15,6 +16,7 @@ end
 
 value, dag, context = tangle(code)
 order!(dag)
+bottom = dag.bottom
 
 print_context(context)
 println("value = $value")
@@ -22,8 +24,9 @@ println("value = $value")
 
 println()
 println("untangled:")
-untangled_code = untangled(context.dag)
-print_list(untangled_code)
+#untangled_code = untangled(context.dag)
+#print_list(untangled_code)
+print_untangled(bottom)
 
 
 # dag2 = scattered(dag)
@@ -34,10 +37,10 @@ print_list(untangled_code)
 # println("\nfanout nodes named (untangled):")
 # print_untangled(dag3)
 
-bottom2 = scattered(dag.bottom)
+bottom2 = scattered(bottom)
 println("\nscattered (untangled):")
-print_untangled(DAG(bottom2))
+print_untangled(bottom2)
 
 bottom3 = count_uses(bottom2)
 println("\nfanout nodes named (untangled):")
-print_untangled(DAG(bottom3))
+print_untangled(bottom3)
