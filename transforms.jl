@@ -8,33 +8,6 @@
 load("utils/cached.jl")
 #load("dag.jl")
 
-# == ordering =================================================================
-
-type OrderContext
-    dag::DAG
-    nodeset::Set{Node}
-
-    OrderContext(dag::DAG) = new(dag, Set{Node}())
-end
-
-function order!(dag::DAG)
-    dag.order = Node[]
-    dag.symnode_names = SymNodeTable()
-    context = OrderContext(dag)
-    for node in dag.bottom.args
-        order_node(context, node)
-    end
-end
-
-function order_node(context::OrderContext, node::Node)
-    if has(context.nodeset, node); return; end
-    add(context.nodeset, node)
-
-    for arg in node.args;   order_node(context, arg);   end
-
-    emit_to_order(context.dag, node)
-end
-
 
 # -- evaluation ---------------------------------------------------------------
 
