@@ -14,8 +14,8 @@ is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
 
 fail_expect(predexpr) = error("Expected: ", string(predexpr))
 
-default_checkexpect_code(ex) = :($ex ? nothing : fail_expect($quoted_expr(ex)))
-make_checkexpect_code(ex)    = default_checkexpect_code(ex)
+default_code_checkexpect(ex) = :($ex ? nothing : fail_expect($quoted_expr(ex)))
+code_checkexpect(ex)         = default_code_checkexpect(ex)
 
 macro expect(args...)
     if !(1 <= length(args) <= 2)
@@ -29,7 +29,7 @@ macro expect(args...)
         return :(($predexpr) ? nothing : ($expr(:call, :error, msg_parts...)))
     else
         # no explicit message
-        return make_checkexpect_code(predexpr)
+        return code_checkexpect(predexpr)
     end    
 end
 
@@ -80,7 +80,7 @@ function fail_expect(predexpr, pred::Function, args::Tuple)
     is(msg, nothing) ? fail_expect(predexpr) : error(msg)
 end
 
-function make_checkexpect_code_call(predexpr::Expr)
+function code_checkexpect_call(predexpr::Expr)
     @assert predexpr.head == :call
     pred, args = predexpr.args[1], predexpr.args[2:end]
     qpredexpr =  quoted_expr(predexpr)
@@ -90,9 +90,9 @@ function make_checkexpect_code_call(predexpr::Expr)
     end; end
 end
 # tie into @expect
-function make_checkexpect_code(ex::Expr)
-    if is_expr(ex, :call); make_checkexpect_code_call(ex)
-    else;                  default_checkexpect_code(ex);   end
+function code_checkexpect(ex::Expr)
+    if is_expr(ex, :call); code_checkexpect_call(ex)
+    else;                  default_code_checkexpect(ex);   end
 end
 
 
