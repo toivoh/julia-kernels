@@ -1,6 +1,7 @@
 
 
 Add / implement
+ o avoid name collisions in untangle
  o infer ndims from arguments
  o use of explicit index vars
  o broadcasting
