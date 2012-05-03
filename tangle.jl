@@ -8,9 +8,19 @@ typealias SymbolTable Dict{Symbol,Node}
 
 type TangleContext  # <: Context
     symbols::SymbolTable                        # current symbol bindings
+    last_line::Node
+    last_actions#::Nodes
     dag::DAG
 
-    TangleContext() = new(SymbolTable(), DAG())
+    TangleContext() = new(SymbolTable(), NoNode(), ActionNode[], DAG())
+end
+
+function emit_line(c::TangleContext, node::Node)
+    c.last_line = isa(c.last_line, NoNode) ? node : KnotNode(c.last_line, node)
+end
+function emit_line(c::TangleContext, node::Node, name::Symbol)
+    emitted = emit_line(c, node); emitted.name = name
+    emitted
 end
 
 emit(c::TangleContext, node::Node) = emit(c.dag, node)
@@ -21,11 +31,11 @@ emit(c::TangleContext, node::Node) = emit(c.dag, node)
 function tangle(code)
     context = TangleContext()
     value = tangle(context, code)
-    dag = context.dag
-    set_value!(dag, value)
-    if is((value::Node).name, nothing)
-        value.name = :value
-    end
+    if is((value::Node).name, nothing);  value.name = :value;  end
+    bottom = KnotNode(context.last_line, context.last_actions..., value)
+    context.dag = DAG(bottom)
+#     dag = context.dag
+#     set_value!(dag, value)
     value, context.dag, context
 end
 
@@ -93,18 +103,19 @@ end
 # Process assignment lhs = rhs.
 # Returns value = rhs 
 
-function entangle_assignment(context::TangleContext, lhs::Symbol, rhs::Node) 
+function entangle_assignment(context::TangleContext, dest::Symbol, rhs::Node) 
     # straight assignment: just store in symbol table
-    rhs.name = lhs # remember this alias for rhs
-    context.symbols[lhs] = rhs # return rhs
+#     rhs.name = dest # remember this alias for rhs
+#     context.symbols[dest] = rhs # return rhs
+    context.symbols[dest] = emit_line(context, rhs, dest) # return rhs
 end
 function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
     # indexed assignment to output
     dest = get_A(lhs)::SymNode
-    node = AssignNode(lhs, rhs, context.dag.bottom_actions...)
+    node = AssignNode(lhs, rhs, context.last_actions...)
     # bind the assignnode to the name of dest
-    context.symbols[dest.val.name] = node
-    context.dag.bottom_actions = [node]
+    context.symbols[dest.val.name] = emit_line(context, node)
+    context.last_actions = [node]
     # and evaluate to the rhs
     rhs
 end
