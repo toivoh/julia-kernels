@@ -15,9 +15,8 @@ type TangleContext
     symbols::SymbolTable  # current symbol bindings
     last_line::Node
     last_actions#::Nodes  # todo: add back once type inference bug is fixed
-    dag::DAG # todo: remove!
 
-    TangleContext() = new(SymbolTable(), NoNode(), ActionNode[], DAG())
+    TangleContext() = new(SymbolTable(), NoNode(), ActionNode[])
 end
 
 function emit_line(c::TangleContext, node::Node)
@@ -28,8 +27,6 @@ function emit_line(c::TangleContext, node::Node, name::Symbol)
     emitted
 end
 
-emit(c::TangleContext, node::Node) = emit(c.dag, node)  # todo: remove!
-
 
 # == tangle ===================================================================
 
@@ -38,10 +35,7 @@ function tangle(code)
     value = tangle(context, code)
     if is((value::Node).name, nothing);  value.name = :value;  end
     bottom = KnotNode(context.last_line, context.last_actions..., value)
-    context.dag = DAG(bottom) # todo: remove!
-#     dag = context.dag
-#     set_value!(dag, value)
-    value, context.dag, context
+    value, bottom, context
 end
 
 
@@ -116,17 +110,9 @@ end
 function print_list(list::Vector) 
     for item in list; println("\t", item); end
 end
-function print_dag(dag::DAG) 
-    println("nodes:")
-    for node in dag.order; println("\t", node); end
-end
 print_symtable(st::SymbolTable) = (for (k, v) in st; println("\t$k = $v"); end)
 
 function print_context(context::TangleContext) 
-    println()
-    print_dag(context.dag) 
     println("Symbols at end:")
     print_symtable(context.symbols)
-    println("SymNode names by kind:")
-    for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end 
 end

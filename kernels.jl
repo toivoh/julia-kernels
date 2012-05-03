@@ -40,8 +40,8 @@ function wrap_kernel(arguments::Vector, flat_code::Vector, indvars,
 end
 
 function flatten_kernel_tangle(code::Expr)
-    value, dag, context = tangle(code)
-    bottom2 = scattered(dag.bottom)
+    value, bottom, context = tangle(code)
+    bottom2 = scattered(bottom)
     bottom3 = count_uses(bottom2)
 
     value, flat_code = untangle(bottom3)
