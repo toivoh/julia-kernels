@@ -57,17 +57,16 @@ type       SymbolEx    <: Terminal;
 end
 
 ## nonterminals ##
-abstract Nonterminal   <: Expression
-abstract   Operation   <: Nonterminal # Nonterminal with storable value
-abstract     FuncOp    <: Operation     # Operation without side effects
-abstract       GroupOp <: FuncOp          # FuncOp with all arguments as peers
-type             TupleEx <: GroupOp; end
-type             KnotEx  <: GroupOp; end    # To encode additional order rels.
-type           CallEx    <: FuncOp;  end
-type           RefEx     <: FuncOp;  end
-abstract     Action    <: Operation     # Operation with side effects
-type           AssignEx <: Action;   end
-type       EllipsisEx    <: Nonterminal; end
+abstract Nonterminal  <: Expression
+abstract   Operation  <: Nonterminal # Nonterminal with storable value
+abstract     FuncOp   <: Operation     # Operation without side effects
+type           KnotEx   <: FuncOp; end   # To encode additional order relations
+type           TupleEx  <: FuncOp; end
+type           CallEx   <: FuncOp; end
+type           RefEx    <: FuncOp; end
+abstract     Action   <: Operation     # Operation with side effects
+type           AssignEx <: Action; end
+type       EllipsisEx   <: Nonterminal; end
 
 
 ## Node type aliases ##
@@ -76,7 +75,6 @@ typealias TerminalNode{T<:Terminal}    Node{T}
 typealias NontermNode {T<:Nonterminal} Node{T}
 typealias OpNode      {T<:Operation}   Node{T}
 typealias FuncOpNode  {T<:FuncOp}      Node{T}
-typealias GroupOpNode {T<:GroupOp}     Node{T}
 typealias ActionNode  {T<:Action}      Node{T}
 
 typealias NoNode       Node{NoEx}
