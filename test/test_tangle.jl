@@ -22,8 +22,8 @@ println("value = $value")
 
 println()
 println("untangled:")
-untangled = untangle(context.dag)
-print_list(untangled)
+untangled_code = untangled(context.dag)
+print_list(untangled_code)
 
 
 # dag2 = scattered(dag)

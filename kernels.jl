@@ -44,7 +44,7 @@ function flatten_kernel_tangle(code::Expr)
     bottom3 = count_uses(bottom2)
     dag3 = DAG(bottom3)
     order!(dag3)
-    flat_code = untangle(dag3)
+    flat_code = untangled(dag3)
 
     arguments = append(get(dag3.symnode_names, :output, Symbol{}),
                        get(dag3.symnode_names, :input,  Symbol{}))

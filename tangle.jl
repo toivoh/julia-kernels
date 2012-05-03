@@ -124,14 +124,14 @@ toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
 toexpr(ex::AssignEx,   args...) = expr(:(=), args[1:2]...)# remove dependencies
 
 
-function untangle(dag::DAG)
+function untangled(dag::DAG)
     exprs = Any[]
     for node in dag.order
         if isa(node, AssignNode)
-            ex = untangle(node, true)
+            ex = untangled(node, true)
             push(exprs, ex)
         elseif !is(node.name, nothing)
-            ex = untangle(node, true)
+            ex = untangled(node, true)
             ex = expr(:(=), node.name, ex)
             push(exprs, ex)
         end
@@ -143,17 +143,17 @@ function untangle(dag::DAG)
     exprs
 end
 
-untangle(nodes::Nodes, fe::Bool) = {untangle(node, fe) | node in nodes}
-untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
-function untangle(node::NontermNode, force_expand::Bool)
+untangled(nodes::Nodes, fe::Bool) = {untangled(node, fe) | node in nodes}
+untangled(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
+function untangled(node::NontermNode, force_expand::Bool)
     if force_expand || is(node.name, nothing)
-        return toexpr(node.val, untangle(node.args)...)
+        return toexpr(node.val, untangled(node.args)...)
     else
         return node.name
     end
 end
-untangle(node::KnotNode, fe::Bool) = untangle(node.args[end])
-untangle(arg) = untangle(arg, false)
+untangled(node::KnotNode, fe::Bool) = untangled(node.args[end])
+untangled(arg) = untangled(arg, false)
 
 
 # == Some printing ============================================================
@@ -176,4 +176,4 @@ function print_context(context::TangleContext)
     for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end 
 end
 
-print_untangled(dag::DAG) = (order!(dag); print_list(untangle(dag)))
+print_untangled(dag::DAG) = (order!(dag); print_list(untangled(dag)))

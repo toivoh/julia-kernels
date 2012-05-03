@@ -19,7 +19,7 @@ end
 # arguments = append(get(dag3.symnode_names, :output, Symbol{}),
 #                    get(dag3.symnode_names, :input,  Symbol{}))
 
-# flat_code = untangle(dag3)
+# flat_code = untangled(dag3)
 
 
 nd = 2
