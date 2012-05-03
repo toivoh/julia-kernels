@@ -19,9 +19,7 @@ type Node{T<:Expression}
         if !isa(args, Vector{Node});   args = Node[args...];   end
 
         node = new(val, Node[args...], nothing, 0)
-        if !check_args(node)
-            error("Invalid node arguments for node type: node = $node")
-        end
+        check_args(node)
         node
     end
     function Node{S<:Expression}(val::S, args...) 
@@ -84,7 +82,7 @@ typealias LiteralNode Node{LiteralEx}
 typealias SymNode     Node{SymbolEx}
 
 Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...), ())
-check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
+check_args{T<:Terminal}(node::Node{T}) = (@expect length(node.args) == 0)
 
 
 # -- functional operations (side effect free) ---------------------------------
@@ -103,15 +101,15 @@ typealias KnotNode     Node{KnotEx}
 
 get_op(node::CallNode) = node.args[1]
 get_callargs(node::CallNode) = node.args[2:end]
-check_args(node::CallNode) = (length(node.args) >= 1)
+check_args(node::CallNode) = (@expect length(node.args) >= 1)
 
 get_A(node::RefNode) = node.args[1]
 get_inds(node::RefNode) = node.args[2:end]
-check_args(node::RefNode) = (length(node.args) >= 1)
+check_args(node::RefNode)  = (@expect length(node.args) >= 1)
 
-check_args(node::KnotNode) = (length(node.args) >= 1)
+check_args(node::KnotNode) = (@expect length(node.args) >= 1)
 
-check_args(node::FuncOpNode) = true
+check_args(node::FuncOpNode) = nothing
 
 
 # -- actions (operations with side effects ------------------------------------
@@ -125,8 +123,8 @@ get_rhs(node::AssignNode) = node.args[2]
 get_preevents(node::AssignNode) = node.args[3:end]
 function check_args(node::AssignNode) 
     get_lhs(node)::RefNode
-    @assert length(node.args) >= 2
-    allp(arg->isa(arg, ActionNode), get_preevents(node))
+    @expect length(node.args) >= 2
+    @expect allp(arg->isa(arg, ActionNode), get_preevents(node))
 end
 
 # -- properties ---------------------------------------------------------------
