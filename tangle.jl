@@ -162,6 +162,7 @@ function untangle(node::OpNode, force_expand::Bool)
         return node.name
     end
 end
+untangle(node::KnotNode, fe::Bool) = untangle(node.args[end])
 untangle(arg) = untangle(arg, false)
 
 

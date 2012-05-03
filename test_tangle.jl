@@ -8,8 +8,9 @@ load("transforms.jl")
 # end
 code = quote
     A = B.*C + D
+    X = A + C
     dest1[...] = A
-    dest2[...] = A + C
+    dest2[...] = X
 end
 
 value, dag, context = tangle(code)
