@@ -4,7 +4,7 @@
 load("tangle.jl")
 load("transforms.jl")
 
-load("staged.jl")
+load("utils/staged.jl")
 
 quote_expr(ex) = expr(:quote, ex)
 quote_tuple(t) = expr(:tuple, {t...})
