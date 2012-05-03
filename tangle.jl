@@ -48,8 +48,8 @@ end
 tangle(c::TangleContext, exps::Vector) = Node[{tangle(c, ex) | ex in exps}...]
 
 tangle(c::TangleContext, ex::Any) = LiteralNode(ex)   # literal
-function tangle(context::TangleContext, name::Symbol)
-    @setdefault context.symbols[name] SymNode(name, :input)
+function tangle(c::TangleContext, name::Symbol)
+    @setdefault c.symbols[name] SymNode(name, name==:(...) ? :symbol : :input)
 end
 function tangle(context::TangleContext, ex::Expr)
     if ex.head == :block    # exprs...
