@@ -47,93 +47,73 @@ typealias Nodes Vector{Node}
 
 # -- expressions --------------------------------------------------------------
 
-abstract Terminal  <: Expression
-abstract Operation <: Expression
-abstract FuncOp        <: Operation  # operation without side effects
-abstract GroupOp           <: FuncOp # operation where all arguments are peers
-abstract Action        <: Operation  # operation with side effects
-
-typealias TerminalNode{T<:Terminal} Node{T}
-
-typealias OpNode{T<:Operation}  Node{T}
-typealias FuncOpNode{T<:FuncOp} Node{T}
-typealias ActionNode{T<:Action} Node{T}
-
-Node{T<:Operation}(::Type{T}, args...) = Node{T}(T(), args)
-
-get_args(node::Operation) = node.args
-
-
-# -- terminals ----------------------------------------------------------------
-
-type NoEx <: Terminal; end
-type LiteralEx <: Terminal
-    value
-end
-type SymbolEx <: Terminal
-    name::Symbol
+abstract Terminal      <: Expression
+type       NoEx        <: Terminal; end
+type       LiteralEx   <: Terminal; value; end
+type       SymbolEx    <: Terminal; 
+    name::Symbol 
     kind::Symbol
-
     SymbolEx(name::Symbol, kind::Symbol) = new(name, kind)
 end
 
-typealias NoNode      Node{NoEx}
-typealias LiteralNode Node{LiteralEx}
-typealias SymNode     Node{SymbolEx}
+abstract Nonterminal   <: Expression
+abstract   Operation   <: Nonterminal # Nonterminal with storable value
+abstract     FuncOp    <: Operation     # Operation without side effects
+abstract       GroupOp <: FuncOp          # FuncOp with all arguments as peers
+type             TupleEx <: GroupOp; end
+type             KnotEx  <: GroupOp; end    # To encode additional order rels.
+type           CallEx    <: FuncOp;  end
+type           RefEx     <: FuncOp;  end
+abstract     Action    <: Operation     # Operation with side effects
+type           AssignEx <: Action;   end
+type       EllipsisEx    <: Nonterminal; end
 
-Node{T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...), ())
-check_args{T<:Terminal}(node::Node{T}) = (@expect length(node.args) == 0)
+typealias TerminalNode{T<:Terminal}    Node{T}
+typealias NontermNode {T<:Nonterminal} Node{T}
+typealias OpNode      {T<:Operation}   Node{T}
+typealias FuncOpNode  {T<:FuncOp}      Node{T}
+typealias GroupOpNode {T<:GroupOp}     Node{T}
+typealias ActionNode  {T<:Action}      Node{T}
 
-
-# -- functional operations (side effect free) ---------------------------------
-
-type CallEx     <: FuncOp;  end
-type RefEx      <: FuncOp;  end
-type TupleEx    <: GroupOp; end
-type EllipsisEx <: GroupOp; end
-type KnotEx     <: GroupOp; end
+typealias NoNode       Node{NoEx}
+typealias LiteralNode  Node{LiteralEx}
+typealias SymNode      Node{SymbolEx}
 
 typealias CallNode     Node{CallEx}
 typealias RefNode      Node{RefEx}
 typealias TupleNode    Node{TupleEx}
-typealias EllipsisNode Node{EllipsisEx}
 typealias KnotNode     Node{KnotEx}
 
-get_op(node::CallNode) = node.args[1]
-get_callargs(node::CallNode) = node.args[2:end]
-check_args(node::CallNode) = (@expect length(node.args) >= 1)
+typealias EllipsisNode Node{EllipsisEx}
+typealias AssignNode   Node{AssignEx}
 
-get_A(node::RefNode) = node.args[1]
-get_inds(node::RefNode) = node.args[2:end]
+
+Node      {T<:Terminal}(::Type{T}, targs...) = Node{T}(T(targs...), ())
+check_args{T<:Terminal}(node::Node{T}) = (@expect length(node.args) == 0)
+
+Node      {T<:Nonterminal}(::Type{T}, args...) = Node{T}(T(), args)
+get_args  {T<:Nonterminal}(node::Node{T}) = node.args
+check_args{T<:Nonterminal}(::Node{T}) = nothing
+
+
+get_op      (node::CallNode) = node.args[1]
+get_callargs(node::CallNode) = node.args[2:end]
+check_args  (node::CallNode) = (@expect length(node.args) >= 1)
+
+get_A     (node::RefNode) = node.args[1]
+get_inds  (node::RefNode) = node.args[2:end]
 check_args(node::RefNode)  = (@expect length(node.args) >= 1)
 
 check_args(node::KnotNode) = (@expect length(node.args) >= 1)
 
-check_args(node::FuncOpNode) = nothing
-
-
-# -- actions (operations with side effects ------------------------------------
-
-type AssignEx <: Action; end
-
-typealias AssignNode Node{AssignEx}
-
-get_lhs(node::AssignNode) = node.args[1]
-get_rhs(node::AssignNode) = node.args[2]
+get_lhs      (node::AssignNode) = node.args[1]
+get_rhs      (node::AssignNode) = node.args[2]
 get_preevents(node::AssignNode) = node.args[3:end]
 function check_args(node::AssignNode) 
     get_lhs(node)::RefNode
     @expect length(node.args) >= 2
     @expect allp(arg->isa(arg, ActionNode), get_preevents(node))
 end
-
-# -- properties ---------------------------------------------------------------
-
-# may the node's value be stored in an intermediate variable?
-is_cachable{T<:Terminal}(::Node{T})  = false  # no point to cache a terminal
-is_cachable(::EllipsisNode)          = false  # storage changes interpretation
-is_cachable(::KnotNode)              = false  # evaluates to last argument
-is_cachable{T<:Operation}(::Node{T}) = true
 
 
 # == DAG ======================================================================

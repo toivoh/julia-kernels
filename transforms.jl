@@ -73,7 +73,7 @@ function evaluate(c::UseCountContext, node::Node)
     node = Node(node, evaluate(c, node.args))
     for arg in node.args
         nu = (arg.num_uses += 1)
-        if ((nu == 2) && (is(arg.name, nothing)) && is_cachable(arg))
+        if ((nu == 2) && (is(arg.name, nothing)) && isa(arg, OpNode))
             arg.name = gensym()
         end
     end

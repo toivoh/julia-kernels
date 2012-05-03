@@ -155,7 +155,7 @@ end
 
 untangle(nodes::Nodes, fe::Bool) = {untangle(node, fe) | node in nodes}
 untangle(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
-function untangle(node::OpNode, force_expand::Bool)
+function untangle(node::NontermNode, force_expand::Bool)
     if force_expand || is(node.name, nothing)
         return toexpr(node.val, untangle(node.args)...)
     else
