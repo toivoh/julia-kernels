@@ -51,8 +51,9 @@ typealias Nodes Vector{Node}
 
 abstract Terminal  <: Expression
 abstract Operation <: Expression
-abstract FuncOp        <: Operation # operation without side effects
-abstract Action        <: Operation # operation with side effects
+abstract FuncOp        <: Operation  # operation without side effects
+abstract GroupOp           <: FuncOp # operation where all arguments are peers
+abstract Action        <: Operation  # operation with side effects
 
 typealias TerminalNode{T<:Terminal} Node{T}
 
@@ -88,15 +89,17 @@ check_args{T<:Terminal}(node::Node{T}) = (length(node.args) == 0)
 
 # -- functional operations (side effect free) ---------------------------------
 
-type CallEx     <: FuncOp; end
-type RefEx      <: FuncOp; end
-type TupleEx    <: FuncOp; end
-type EllipsisEx <: FuncOp; end
+type CallEx     <: FuncOp;  end
+type RefEx      <: FuncOp;  end
+type TupleEx    <: GroupOp; end
+type EllipsisEx <: GroupOp; end
+type KnotEx     <: GroupOp; end
 
 typealias CallNode     Node{CallEx}
 typealias RefNode      Node{RefEx}
 typealias TupleNode    Node{TupleEx}
 typealias EllipsisNode Node{EllipsisEx}
+typealias KnotNode     Node{KnotEx}
 
 get_op(node::CallNode) = node.args[1]
 get_callargs(node::CallNode) = node.args[2:end]
@@ -105,6 +108,8 @@ check_args(node::CallNode) = (length(node.args) >= 1)
 get_A(node::RefNode) = node.args[1]
 get_inds(node::RefNode) = node.args[2:end]
 check_args(node::RefNode) = (length(node.args) >= 1)
+
+check_args(node::KnotNode) = (length(node.args) >= 1)
 
 check_args(node::FuncOpNode) = true
 
@@ -129,6 +134,7 @@ end
 # may the node's value be stored in an intermediate variable?
 is_cachable{T<:Terminal}(::Node{T})  = false  # no point to cache a terminal
 is_cachable(::EllipsisNode)          = false  # storage changes interpretation
+is_cachable(::KnotNode)              = false  # evaluates to last argument
 is_cachable{T<:Operation}(::Node{T}) = true
 
 
