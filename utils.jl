@@ -99,9 +99,6 @@ end
 
 @failexpect is_expr(ex, head::Symbol) = "expected expr(:$head,...), got $ex"
 
-function expect_expr(ex, head::Symbol)
-    @expect is_expr(ex, head) "expected expr(:$head,...), found $ex"
-end
 
 # == @setdefault ==============================================================
 
@@ -112,7 +109,7 @@ end
 #     end
 #     refexpr, default = tuple(args...)
 macro setdefault(refexpr, default)
-    expect_expr(refexpr, :ref)
+    @expect is_expr(refexpr, :ref)
     dict_expr, key_expr = tuple(refexpr.args...)
     @gensym dict key #defval
     quote

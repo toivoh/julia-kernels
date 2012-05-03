@@ -91,7 +91,7 @@ end
 tangle_lhs(context::TangleContext, name::Symbol) = name
 function tangle_lhs(context::TangleContext, ex::Expr)
     # assign[]
-    expect_expr(ex, :ref)
+    @expect is_expr(ex, :ref)
     oname = ex.args[1]
     output = @setdefault context.symbols[oname] SymNode(oname, :output)
     inds = tangle(context, ex.args[2:end])
