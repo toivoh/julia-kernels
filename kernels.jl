@@ -1,17 +1,17 @@
 
-#load("flatten.jl")
+# kernels.jl
+# ==========
+# The @kernel macro and associated machinery
+#
 
+load("utils/staged.jl")
+load("utils/utils.jl")
 load("tangle.jl")
 load("transforms.jl")
 
-load("utils/staged.jl")
-
-quote_expr(ex) = expr(:quote, ex)
-quote_tuple(t) = expr(:tuple, {t...})
 
 function wrap_kernel_body(flat_code::Vector, indvars)
-    Xref = expr(:ref, :X, indvars...)
-    prologue = { :(indvars=$(quote_tuple(indvars))) }
+    prologue = { :(indvars=$(quoted_tuple(indvars))) }
 
     body = expr(:block, append(prologue, flat_code))
     for k = 1:length(indvars)
@@ -30,24 +30,12 @@ function wrap_kernel(arguments::Vector, flat_code::Vector, indvars,
     body = :(shape = size($(arguments[1])); $body)
     
     if staged
-        fdef = expr(:function, signature, quote_expr(body))
+        fdef = expr(:function, signature, quoted_expr(body))
         fdef = :(@staged $fdef)
     else
         fdef = expr(:function, signature, body)
     end
     return :($fdef; $fname)
-end
-
-function flatten_kernel(code::Expr)
-    symbols = Dict{Symbol,SymEntry}()
-    flat_code = {}
-    receive = ex->append!(flat_code, {ex})
-    context = Context(symbols, receive)
-    value = flatten(context, code)
-
-    arguments = append(context.outputs, context.inputs)
-    
-    flat_code, arguments
 end
 
 function flatten_kernel_tangle(code::Expr)
