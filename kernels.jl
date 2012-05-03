@@ -8,6 +8,7 @@ load("utils/staged.jl")
 load("utils/utils.jl")
 load("tangle.jl")
 load("transforms.jl")
+load("julia_backend.jl")
 
 
 function wrap_kernel_body(flat_code::Vector, indvars)
@@ -42,12 +43,12 @@ function flatten_kernel_tangle(code::Expr)
     value, dag, context = tangle(code)
     bottom2 = scattered(dag.bottom)
     bottom3 = count_uses(bottom2)
-    dag3 = DAG(bottom3)
-    order!(dag3)
-    flat_code = untangled(dag3)
 
-    arguments = append(get(dag3.symnode_names, :output, Symbol{}),
-                       get(dag3.symnode_names, :input,  Symbol{}))
+    value, flat_code = untangle(bottom3)
+    symnode_names = collect_symnode_names(bottom3)
+
+    arguments = append(get(symnode_names, :output, Symbol{}),
+                       get(symnode_names, :input,  Symbol{}))
                        
     flat_code, arguments
 end

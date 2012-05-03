@@ -111,51 +111,6 @@ function entangle_assignment(context::TangleContext, lhs::RefNode, rhs::Node)
 end
 
 
-# == Untangle =================================================================
-
-toexpr(ex::LiteralEx) = ex.value
-toexpr(ex::SymbolEx)  = ex.name
-
-toexpr(ex::CallEx,     args...) = expr(:call,  args...)
-toexpr(ex::RefEx,      args...) = expr(:ref,   args...)
-toexpr(ex::TupleEx,    args...) = expr(:tuple, args...)
-toexpr(ex::EllipsisEx, args...) = expr(:(...), args...)
-
-toexpr(ex::AssignEx,   args...) = expr(:(=), args[1:2]...)# remove dependencies
-
-
-function untangled(dag::DAG)
-    exprs = Any[]
-    for node in dag.order
-        if isa(node, AssignNode)
-            ex = untangled(node, true)
-            push(exprs, ex)
-        elseif !is(node.name, nothing)
-            ex = untangled(node, true)
-            ex = expr(:(=), node.name, ex)
-            push(exprs, ex)
-        end
-    end
-    value = get_value(dag)
-    if !is(dag.order[end], value)
-        push(exprs, value.name)
-    end
-    exprs
-end
-
-untangled(nodes::Nodes, fe::Bool) = {untangled(node, fe) | node in nodes}
-untangled(node::TerminalNode, force_expand::Bool)  = toexpr(node.val)
-function untangled(node::NontermNode, force_expand::Bool)
-    if force_expand || is(node.name, nothing)
-        return toexpr(node.val, untangled(node.args)...)
-    else
-        return node.name
-    end
-end
-untangled(node::KnotNode, fe::Bool) = untangled(node.args[end])
-untangled(arg) = untangled(arg, false)
-
-
 # == Some printing ============================================================
 
 function print_list(list::Vector) 
@@ -175,5 +130,3 @@ function print_context(context::TangleContext)
     println("SymNode names by kind:")
     for (k, names) in context.dag.symnode_names; println("\t$k:\t$names"); end 
 end
-
-print_untangled(dag::DAG) = (order!(dag); print_list(untangled(dag)))
