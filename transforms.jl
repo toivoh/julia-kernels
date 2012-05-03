@@ -53,6 +53,19 @@ evaluate(c::Context, ns::Nodes) = { (@cached evaluate(c, node))|node in ns }
 evaluate(c::Context, node::Node) = Node(node, (@cached evaluate(c, node.args)))
 
 
+# -- topsort iteration --------------------------------------------------------
+
+type Topsorter; end
+typealias TopsortContext Context{Topsorter}
+
+forward(bottom::Node) = @task evaluate(TopsortContext(), bottom)
+
+function evaluate(c::TopsortContext, node::Node)
+    evaluate(c, node.args)
+    produce(node)
+    nothing
+end
+
 # -- scattering fusion --------------------------------------------------------
 
 type Scatterer; end
@@ -84,4 +97,18 @@ function evaluate(c::UseCountContext, node::Node)
         end
     end
     node
+end
+
+
+# -- Collect SymNode names ----------------------------------------------------
+
+function collect_symnode_names(bottom::Node)
+    allnames = Dict{Symbol,Vector{Symbol}}()
+    for node in forward(bottom)
+        if isa(node, SymNode)
+            names = @setdefault allnames[node.val.kind] Symbol[]
+            push(names, node.val.name)
+        end        
+    end
+    allnames
 end
