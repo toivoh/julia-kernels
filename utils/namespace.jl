@@ -33,7 +33,7 @@ end
 
 # -- scanvars -----------------------------------------------------------------
 
-scanlet(expr::Expr) = (@assert expr.head == :let; scanvars(ex.args[1]))
+scanlet(ex::Expr) = (@assert ex.head == :let; scanvars(ex.args[1]))
 
 function scanvars(ex)
     c = ScannedVars()    

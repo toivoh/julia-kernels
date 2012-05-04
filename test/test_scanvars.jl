@@ -1,7 +1,7 @@
 
 load("utils/namespace.jl")
 
-showall(scanvars(quote
+showall(scanvars_let(:(let
     a
     b::Int
     c=1
@@ -37,4 +37,4 @@ showall(scanvars(quote
     type V <: T
         z::String
     end
-end))
+end)))
