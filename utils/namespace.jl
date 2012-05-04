@@ -124,3 +124,33 @@ function scanvars_typename(c::ScannedVars, ex::Expr)
 end
 
 
+# == @namespace ===============================================================
+
+create_struct_type(name, fields)
+    
+end
+
+macro namespace(name::Symbol, body::Expr)
+    if (body.head != :let)
+        #error("@namespace: body must be a let block")
+    end
+    fields = scanvars_let(body)
+
+    @gensym NamespaceStruct
+    epilogue = quote
+        ($NamespaceStruct) = create_struct_type(
+            ($expr(:quote, NamespaceStruct)),
+            
+            vars... # todo
+        )
+        ($NamespaceStruct)($varnames...)
+    end        
+
+    augblock = expr(:block, body.args[1], epilogue)    
+    auglet   = expr(:let, augblock, body.args[2:end])
+
+    quote
+        $name = $auglet
+        nothing
+    end
+end
