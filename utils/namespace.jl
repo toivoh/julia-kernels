@@ -33,12 +33,28 @@ end
 
 # -- scanvars -----------------------------------------------------------------
 
-scanlet(ex::Expr) = (@assert ex.head == :let; scanvars(ex.args[1]))
+make_varlist(c::ScannedVars) = { (name, c.vartypes[name]) | name in c.vars }
 
+function scanvars_let(ex::Expr)
+    @assert ex.head == :let
+    c = ScannedVars()
+    # scan the lhs in of the arguments
+    for arg in ex.args[2:end]
+        if (isa(arg, Expr) && (arg.head == :(=)))
+            arg = arg.args[1]
+        end
+        scanvars_lhs(c, arg, true)            
+    end
+    # scan the body
+    scanvars(c, ex.args[1])
+    make_varlist(c)
+end
+
+# todo: remove?
 function scanvars(ex)
     c = ScannedVars()    
     scanvars(c, ex)
-    { (name, c.vartypes[name]) | name in c.vars }
+    make_varlist(c)
 end
 
 scanvars(c::ScannedVars, ex) = scanvars(c, ex, false)
@@ -64,6 +80,8 @@ function scanvars(c::ScannedVars, ex::Expr)
         foreach(arg->scanvars_local(c, arg), ex.args)
     elseif contains([:type, :abstract], ex.head)
         scanvars_typename(c, ex.args[1])
+    elseif ex.head == :return
+        error("@namespace: return out of namespace scope not suppported")
     else
         foreach(arg->scanvars(c, arg), ex.args)        
     end    
@@ -104,3 +122,5 @@ function scanvars_typename(c::ScannedVars, ex::Expr)
     end
     scanvars_typename(c, ex.args[1])
 end
+
+

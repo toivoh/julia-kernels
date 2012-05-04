@@ -1,7 +1,7 @@
 
 load("utils/namespace.jl")
 
-showall(scanvars_let(:(let
+showall(scanvars_let(:(let arg1, arg2::Int, arg3=1, arg4::Int=2, arg5=(gl=1)
     a
     b::Int
     c=1
