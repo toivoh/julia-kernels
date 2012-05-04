@@ -3,138 +3,107 @@
 const doublecolon = @eval (:(x::Int)).head
 
 
-# -- ScannedVars --------------------------------------------------------------
+# -- ScannedConsts ------------------------------------------------------------
 
-type ScannedVars
-    vars::Vector{Symbol}           # variable names in order
-    vartypes::Dict{Symbol,Symbol}  # if it's encountered, the type is here
-    locals::Set{Symbol}            # 
+type ScannedConsts
+    names::Vector{Symbol}  # const names in order
+    declared::Set{Symbol}  # set of all declared (const) names
 
-    ScannedVars() = new(Symbol[], Dict{Symbol,Symbol}(), Set{Symbol}())
+    ScannedConsts() = new(Symbol[], Set{Symbol}())
 end
 
-function addsym(c::ScannedVars, name::Symbol, typename::Symbol, inlocal::Bool)
-#    println("addsym(inlocal=$inlocal): (name, typename) = ($name, $typename)")
-
-    setvar = inlocal
-    if !has(c.vartypes, name)
-        push(c.vars, name)  # list the nane if first time encountered
-        setvar = true
-    end
-    if setvar;  c.vartypes[name] = typename;  end
-    if inlocal
-        if has(c.locals, name)
-            error("scanvars: syntax error: local $name declared twice")
-        end
-        add(c.locals, name)                
+function addconst(c::ScannedConsts, name::Symbol)
+    if !has(c.declared, name)
+        add(c.declared, name)
+        push(c.names, name)
     end
 end
 
 
-# -- scanvars -----------------------------------------------------------------
+# -- scanconsts ---------------------------------------------------------------
 
-make_varlist(c::ScannedVars) = { (name, c.vartypes[name]) | name in c.vars }
-
-function scanvars_let(ex::Expr)
+function scanconsts_let(ex::Expr)
     @assert ex.head == :let
-    c = ScannedVars()
-    # scan the lhs in of the arguments
-    for arg in ex.args[2:end]
-        if (isa(arg, Expr) && (arg.head == :(=)))
-            arg = arg.args[1]
-        end
-        scanvars_lhs(c, arg, true)            
-    end
-    # scan the body
-    scanvars(c, ex.args[1])
-    make_varlist(c)
+    c = ScannedConsts()
+    scanconsts(c, ex.args[1]) # scan the body; header can't have consts
+    c.names
 end
 
-# todo: remove?
-function scanvars(ex)
-    c = ScannedVars()    
-    scanvars(c, ex)
-    make_varlist(c)
-end
+# # todo: remove?
+# function scanconsts(ex)
+#     c = ScannedConsts()    
+#     scanconsts(c, ex)
+#     c.names
+# end
 
-scanvars(c::ScannedVars, ex) = scanvars(c, ex, false)
-
-scanvars(::ScannedVars, ::Any) = nothing
-function scanvars(c::ScannedVars, ex::Expr)
-#     println("scanvars: ex=$ex")
+scanconsts(::ScannedConsts, ::Any) = nothing
+function scanconsts(c::ScannedConsts, ex::Expr)
+#     println("scanconsts: ex=$ex")
 
     # don't recurse into scope forming exprs
-    if contains([:for, :while, :try, :let, :(->), :function], ex.head)
+    if contains([:for, :while, :try, :let, :(->)], ex.head)
         return
     end
     if ex.head == :global; return; end
 
-    # todo: handle type, abstract
-
     # still have to watch out for e g f(x)=x^2
     if ex.head == :(=)
-        scanvars_lhs(c, ex.args[1], false)
-        scanvars(c, ex.args[2])
-    elseif ex.head == :local
-#        println("scanvars: ex = ", ex)
-        foreach(arg->scanvars_local(c, arg), ex.args)
-    elseif contains([:type, :abstract], ex.head)
-        scanvars_typename(c, ex.args[1])
+        scanconsts_lhs(c, ex.args[1])
+        scanconsts(c, ex.args[2])
+    elseif contains([:type, :abstract, :typealias, :const], ex.head)
+        scanconsts_const(c, ex.args[1])
+    elseif ex.head == :function
+        scanconsts_const(c, ex.args[1].args[1]) # assume ex.args[1] is a :call
     elseif ex.head == :return
         error("@namespace: return out of namespace scope not suppported")
     else
-        foreach(arg->scanvars(c, arg), ex.args)        
+        foreach(arg->scanconsts(c, arg), ex.args)        
     end    
 end
 
-scanvars_lhs(c::ScannedVars, lhs::Symbol, il::Bool) = addsym(c, lhs, :Any, il)
-function scanvars_lhs(c::ScannedVars, lhs::Expr, inlocal::Bool)
-#     println("scanvars_lhs(inlocal=$inlocal): lhs=$lhs")
+scanconsts_lhs(c::ScannedConsts, lhs::Symbol) = nothing
+function scanconsts_lhs(c::ScannedConsts, ex::Expr)
+#     println("scanconsts_lhs: ex=$ex")
 
-    if lhs.head == :tuple
-        foreach(arg->scanvars_lhs(c, arg, inlocal), lhs.args)
-    elseif lhs.head == doublecolon
-        addsym(c, lhs.args[1], lhs.args[2], inlocal)
-    elseif contains([:ref, :call], lhs.head) 
-        # indexed assignment/method declaration: do nothing
+    if ex.head == :call
+        scanconsts_const(c, ex.args[1])
+        foreach(arg->scanconsts(c, arg), ex.args[2:end])
     else
-        error("scanvars_lhs: unexpected lhs = ", lhs)
+        foreach(arg->scanconsts(c, arg), ex.args)
     end
 end
 
-scanvars_local(c::ScannedVars, lhs::Symbol) = scanvars_lhs(c, lhs, true)
-function scanvars_local(c::ScannedVars, ex::Expr)
-#    println("scanvars_local: ex = $ex")
+scanconsts_const(c::ScannedConsts, sym::Symbol) = addconst(c, sym)
+function scanconsts_const(c::ScannedConsts, ex::Expr)
+#    println("scanconsts_local: ex = $ex")
     if ex.head == :(=)
-        scanvars_lhs(c, ex.args[1], true)
-        scanvars(c, ex.args[2])
+        scanconsts_const(c, ex.args[1])
+        scanconsts(c, ex.args[2])
+    elseif ex.head == :comparison
+        scanconsts_const(c, ex.args[1])
+        scanconsts(c, ex.args[3])
+    elseif ex.head == :curly
+        scanconsts_const(c, ex.args[1])
+        foreach(arg->scanconsts(c, arg), ex.args[2:end])
+    elseif ex.head == :global
+    elseif ex.head == :local
+        foreach(arg->scanconsts_const(c, arg), ex.args)        
     else
-        scanvars_lhs(c, ex, true) # assume it's a ::
+        error("scanconsts_const: unexpected ex = ", ex)
     end
-end
-
-scanvars_typename(c::ScannedVars, name::Symbol) = addsym(c, name, :Type, true)
-function scanvars_typename(c::ScannedVars, ex::Expr)
-#     println("scanvars_typename: ex=$ex")
-
-    if !((ex.head == :comparison) && (length(ex.args) == 3))
-        error("scanvars: invalid type signature ", ex)
-    end
-    scanvars_typename(c, ex.args[1])
 end
 
 
 # == @namespace ===============================================================
 
-create_struct_type(name, fields)
-    
+function create_struct_type(name, fields)    
 end
 
 macro namespace(name::Symbol, body::Expr)
     if (body.head != :let)
         #error("@namespace: body must be a let block")
     end
-    fields = scanvars_let(body)
+    fields = scanconsts_let(body)
 
     @gensym NamespaceStruct
     epilogue = quote
