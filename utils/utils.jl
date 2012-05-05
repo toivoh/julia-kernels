@@ -5,6 +5,8 @@ end
 
 
 quoted_expr(ex) = expr(:quote, ex)
+quoted_exprs(exprs) = { quoted_expr(ex) for ex in exprs }
+
 quoted_tuple(t) = expr(:tuple, {t...})
 
 is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))

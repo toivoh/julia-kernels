@@ -11,63 +11,60 @@ load("transforms.jl")
 load("julia_backend.jl")
 
 
-function wrap_kernel_body(flat_code::Vector, indvars)
-    prologue = { :(indvars=$(quoted_tuple(indvars))) }
+ast2dag(code) = tangle(code)[2]
 
-    body = expr(:block, append(prologue, flat_code))
-    for k = 1:length(indvars)
-        indvar = indvars[k]
-        body = expr(:for, :(($indvar) = 1:shape[$k]), body)
-    end
-    body
+function collect_arguments(bottom::Node)
+    symnode_names = collect_symnode_names(bottom)
+    append(get(symnode_names, :output, Symbol{}),
+           get(symnode_names, :input,  Symbol{}))
 end
 
-function wrap_kernel(arguments::Vector, flat_code::Vector, indvars, 
-                     staged::Bool)
-    fname = gensym("kernel")
-    signature = expr(:call, fname, arguments...)
-
-    body = wrap_kernel_body(flat_code, indvars)
-    body = :(shape = size($(arguments[1])); $body)
-    
-    if staged
-        fdef = expr(:function, signature, quoted_expr(body))
-        fdef = :(@staged $fdef)
-    else
-        fdef = expr(:function, signature, body)
-    end
-    return :($fdef; $fname)
+# transform raw DAG independent of argument types
+function general_transform(rawdag::Node)
+    dag2 = scattered(rawdag)
+    dag3 = count_uses(dag2)
 end
 
-function flatten_kernel_tangle(code::Expr)
-    value, bottom, context = tangle(code)
-    bottom2 = scattered(bottom)
-    bottom3 = count_uses(bottom2)
+function gendag_to_specbody(gendag::Node, argnames::Vector{Symbol},
+                            argtypes::Vector{Type})
+    value, flat_code = untangle(gendag)
 
-    value, flat_code = untangle(bottom3)
-    symnode_names = collect_symnode_names(bottom3)
-
-    arguments = append(get(symnode_names, :output, Symbol{}),
-                       get(symnode_names, :input,  Symbol{}))
-                       
-    flat_code, arguments
-end
-
-function make_kernel(code, nd)
-    flat_code, arguments = flatten_kernel_tangle(code)
-    println("arguments = ", arguments)
-
-    #indvars = gensym(32) # just some number of dims that should be enough
     indvars = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
 
-    staged = true
-
-    fdef = wrap_kernel(arguments, flat_code, indvars[1:nd], staged)
-    fdef, arguments
+    nd = ndims(argtypes[1])
+    body = wrap_kernel_body(flat_code, indvars[1:nd])
+    body = :(shape = size($(argnames[1])); $body)    
 end
 
-macro kernel(nd, code)
-    fdef, arguments = make_kernel(code, nd)
-    kernel = eval(fdef)
-    expr(:call, kernel, arguments...)    
+
+macro kernel(code)
+    code_kernel(code)
+end
+function code_kernel(code)
+    # Front end: ast --> dag
+    #   todo: check format here. e g let/function/?
+    rawdag = ast2dag(code)
+
+    # Front midsection: dag transforms independent of argument types
+    kernelargs = collect_arguments(rawdag)
+    gendag = general_transform(rawdag)
+
+    # Front end: 
+    #   create staged kernel function
+    @gensym kernel
+    @eval begin
+        @staged function ($kernel)($kernelargs...)
+            # Back half: 
+            #   Back midsection: argument type dependent transforms
+            #   Back end: kernel instantiation
+            gendag_to_specbody(($gendag), 
+                               Symbol[{$quoted_exprs(kernelargs)...}...],
+                               Type[{$kernelargs...}...])
+        end
+    end
+
+    #    and insert a call to it in the code
+    quote
+        ($kernel)($kernelargs...)
+    end
 end

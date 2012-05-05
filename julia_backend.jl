@@ -50,4 +50,20 @@ function evaluate(c::UntangleContext, node::Node)
 end
 
 
+# -- wrap_kernel_body ---------------------------------------------------------
+
+function wrap_kernel_body(flat_code::Vector, indvars)
+    prologue = { :(indvars=$(quoted_tuple(indvars))) }
+
+    body = expr(:block, append(prologue, flat_code))
+    for k = 1:length(indvars)
+        indvar = indvars[k]
+        body = expr(:for, :(($indvar) = 1:shape[$k]), body)
+    end
+    body
+end
+
+
+# -- printing -----------------------------------------------------------------
+
 print_untangled(bottom::Node) = (print_list(untangle(bottom)[2]))

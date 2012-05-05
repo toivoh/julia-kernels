@@ -26,7 +26,7 @@ D = [ 0  0  0
  
 # fdef, arguments = make_kernel(code, 2)
 
-@kernel 2 begin
+@kernel begin
     A = B.*C + D
     dest1[...] = A
     dest2[...] = A + C
@@ -74,7 +74,7 @@ function timeit(n::Int)
     tmk = toc()
 
     print("Kernel:             "); tic()
-    @kernel 2 begin
+    @kernel begin
         A[...] = B.*C + D
     end
     tk = toc()

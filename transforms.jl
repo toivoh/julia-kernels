@@ -51,7 +51,9 @@ function evaluate(c::ScatterContext, node::SymNode)
     node.val.name == :(... ) ? ellipsis : RefNode(node, ellipsis)
 end
 function evaluate(c::ScatterContext, node::Union(CallNode,RefNode))
-    Node(node, { node.args[1]::SymNode, evaluate(c, node.args[2:end])... })
+    # todo: use first line once ref result type bug is fixed
+#    Node(node, { node.args[1]::SymNode, evaluate(c, node.args[2:end])... })
+    Node(node, { node.args[1]::SymNode, evaluate(c, Node[node.args[2:end]...])... })
 end
 
 
