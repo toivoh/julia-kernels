@@ -18,7 +18,7 @@ D = [ 0  0  0
 # ex = code_kernel(code)
 # eval(ex)
 
-@kernel begin
+@kernel let
     A = B.*C + D
     dest1[...] = A
     dest2[...] = A + C

@@ -11,8 +11,6 @@ load("transforms.jl")
 load("julia_backend.jl")
 
 
-ast2dag(code) = tangle(code)[2]
-
 function collect_arguments(bottom::Node)
     symnode_names = collect_symnode_names(bottom)
     append(get(symnode_names, :output, Symbol{}),
@@ -43,7 +41,10 @@ end
 function code_kernel(code)
     # Front end: ast --> dag
     #   todo: check format here. e g let/function/?
-    rawdag = ast2dag(code)
+    @expect is_expr(code, :let)
+    @expect length(code.args) == 1 # no let arguments, just body
+#     value, rawdag, context = tangle(code.args[1])
+    rawdag = tangle(code.args[1])[2]
 
     # Front midsection: dag transforms independent of argument types
     kernelargs = collect_arguments(rawdag)
