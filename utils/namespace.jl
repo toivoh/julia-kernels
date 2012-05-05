@@ -96,30 +96,38 @@ end
 
 # == @namespace ===============================================================
 
-function create_struct_type(name, fields)    
+function declare_struct_type(structname, names, types)
+    fields = {expr(doublecolon, name, t) for (name, t) in zip(names, types)}
+    tdef = expr(:type, structname, expr(:block, fields))
+    eval(tdef)
 end
 
 macro namespace(name::Symbol, body::Expr)
+    namespace(name, body)
+end
+
+function namespace(typename::Symbol, body::Expr)
     if (body.head != :let)
         #error("@namespace: body must be a let block")
     end
-    fields = scanconsts_let(body)
+    fieldnames = scanconsts_let(body)
 
-    @gensym NamespaceStruct
+    @gensym NamespaceStruct types x
     epilogue = quote
-        ($NamespaceStruct) = create_struct_type(
-            ($expr(:quote, NamespaceStruct)),
-            
-            vars... # todo
-        )
-        ($NamespaceStruct)($varnames...)
+        
+        $types = {typeof($x) for ($x) in {$fieldnames...}}
+#        println($types)
+        declare_struct_type(($expr(:quote, NamespaceStruct)),
+                            {${expr(:quote, name) for name in fieldnames}...},
+                            $types)
+        ($NamespaceStruct)($fieldnames...)
     end        
 
     augblock = expr(:block, body.args[1], epilogue)    
-    auglet   = expr(:let, augblock, body.args[2:end])
+    auglet   = expr(:let, augblock, body.args[2:end]...)
 
     quote
-        $name = $auglet
+        $typename = $auglet
         nothing
     end
 end
