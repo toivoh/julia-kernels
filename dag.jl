@@ -121,8 +121,34 @@ end
 
 
 # == prettyprinting ===========================================================
+
+pprint_nodeval(io::PrettyIO, node::NoNode) = pprint(io, "NoNode()")
+pprint_nodeval(io::PrettyIO, node::LiteralNode) = pprint(io, 
+                                             "LiteralNode($(node.val.value))")
+pprint_nodeval(io::PrettyIO, node::SymNode) = pprint(io, 
+                              "SymNode(:$(node.val.name), :$(node.val.kind))")
+
+pprint_nodeval(io::PrettyIO, ::CallNode  ) = pprint(io, "CallNode(args...)"  )
+pprint_nodeval(io::PrettyIO, ::RefNode   ) = pprint(io, "RefNode(args...)"   )
+pprint_nodeval(io::PrettyIO, ::TupleNode ) = pprint(io, "TupleNode(args...)" )
+pprint_nodeval(io::PrettyIO, ::KnotNode  ) = pprint(io, "KnotNode(args...)"  )
+pprint_nodeval(io::PrettyIO, ::EllipsisNode  ) = pprint(io, 
+                                                    "EllipsisNode(args...)"  )
+pprint_nodeval(io::PrettyIO, ::AssignNode) = pprint(io, "AssignNode(args...)")
+
+typealias CallNode     Node{CallEx}
+typealias RefNode      Node{RefEx}
+typealias TupleNode    Node{TupleEx}
+typealias KnotNode     Node{KnotEx}
+
+typealias EllipsisNode Node{EllipsisEx}
+typealias AssignNode   Node{AssignEx}
+
+pprint_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
+
+
 function pprint(io::PrettyIO, node::Node)
-    pprint(io, "Node(", node.val, ")")
+    pprint_nodeval(io, node)
     for (arg, k) in enumerate(node.args)
         pprintln(io)
         subio = subtree(io, k==length(node.args))
