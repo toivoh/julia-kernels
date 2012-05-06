@@ -132,13 +132,13 @@ pprint_nodeval(io::PrettyIO, node::LiteralNode) = pprint(io,
 pprint_nodeval(io::PrettyIO, node::SymNode) = pprint(io, 
                               "SymNode(:$(node.val.name), :$(node.val.kind))")
 
-repitem(item, count) = [item for k=1:count]
+repargname(argname, n) = (n == 1 ? [argname] : [argname*string(k) for k=1:n])
 
 get_signature(node::CallNode    ) = ("CallNode"    , ["op", "arg"])
 get_signature(node::RefNode     ) = ("RefNode"     , ["A",  "ind"])
 get_signature(node::TupleNode   ) = ("TupleNode"   , ["arg"])
 get_signature(node::KnotNode    ) = ("KnotNode"    , [
-                                repitem("arg",length(node.args)-1), "value"])
+                           repargname("pre",length(node.args)-1), "value"])
 get_signature(node::EllipsisNode) = ("EllipsisNode", ["arg"])
 get_signature(node::AssignNode  ) = ("AssignNode"  , ["lhs", "rhs", "dep"])
 
@@ -154,22 +154,24 @@ function pprint(io::PrettyIO, node::Node)
         pprint_nodeval(io, node)
     else
         name, argnames = get_signature(node)
+        dlength = length(node.args) - length(argnames)
+        argnames = [argnames[1:end-1], repargname(argnames[end], 1+dlength)]
 
         pprint(io, name, "(")
-        dlength = length(node.args) - length(argnames)
-        argnames = [argnames[1:end-1], repitem(argnames[end], 1+dlength)]
-        for (argname, k) in enumerate(argnames)
-            pprint(io, argname)
-            if k<length(argnames)
-                pprint(io, ", ")
+        let io=subblock(io)
+            for ((arg, argname), k) in enumerate(zip(node.args, argnames))
+                verbose = !has_name(arg)
+                if (k==1) && verbose;  pprint(io, '\n');  end
+                pprint(io, argname, "=")
+                if verbose;  pprint(io, arg);
+                else         pprint(io, get_name(arg));  end
+                if k<length(argnames)
+                    pprint(io, ", ")
+                    if verbose;  pprint(io, '\n');  end
+                end
             end
         end
         pprint(io, ")")
-    end
-    for (arg, k) in enumerate(node.args)
-        pprintln(io)
-        subio = subtree(io, k==length(node.args))
-        pprint_compact(subio, arg)
     end
 end
 

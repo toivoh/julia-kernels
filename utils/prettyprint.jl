@@ -2,61 +2,21 @@
 load("utils/utils.jl")
 
 
-type PrettyIO
-    width::Int
-    linebegin_hook::Function
-    io
-    currpos::Int
-    indent::Int
-
-    function PrettyIO(width::Int, linebegin_hook::Function, io, currpos::Int)
-        @expect width >= 1
-        new(width, linebegin_hook, io, currpos, 3)
-    end
-    function PrettyIO(width::Int, linebegin_hook::Function, io)
-        PrettyIO(width, linebegin_hook, io, 0)
-    end
-    function PrettyIO(width::Int, linebegin_hook::Function)
-        global OUTPUT_STREAM
-        PrettyIO(width, linebegin_hook, OUTPUT_STREAM)
-    end
-    PrettyIO(width::Int) = PrettyIO(width, ()->"")
-end
-
-default_pretty() = PrettyIO(80)
-
-
-subtree(io::PrettyIO, last::Bool) = subtree(io, last, io.indent)
-function subtree(io::PrettyIO, last::Bool, indent::Int)
-    nsp = indent >= 3 ? 1 : 0
-    sp = " "^nsp
-    subpretty(io, "+"*("-"^(indent-1-nsp))*sp,
-                  last ? " "^indent : "|"*" "^(indent-1-nsp)*sp
-              )
-end
-
-function subpretty(io::PrettyIO, firstprefix::String, restprefix::String)
-    pprint(io, firstprefix)
-    linebegin = let firstline=true
-        () -> (firstline ? (firstline=false; "") : restprefix)
-    end
-    subio = PrettyIO(io.width-strlen(restprefix), linebegin, io)
-end
-
-
+pprintln(args...) = pprint(args..., '\n')
+pprint(args...) = pprint(default_pretty(), args...)
 
 pprint(io::IO, args...) = print(io, args...)
 
-function pprint(io::PrettyIO, c::Char)
-    if io.currpos == 0
-        pprint(io.io, io.linebegin_hook())
-    end
-    pprint(io.io, c)
-    io.currpos += 1
-    if c == '\n';  io.currpos = 0;  end
-    if io.currpos >= io.width;  pprint(io, '\n');  end    
-end
+
+# -- PrettyIO -----------------------------------------------------------------
+
+abstract PrettyIO
+
 function pprint(io::PrettyIO, s::String)
+    n = strlen(s)
+    if (n <= 20) && (chars_left_on_line(io) < n)
+        pprint(io, '\n')
+    end
     for c in s; pprint(io, c); end
 end
 function pprint(io::PrettyIO, arg::Any)
@@ -69,8 +29,82 @@ end
 pprint(io::PrettyIO, args...) = foreach(arg->pprint(io, arg), args)
 
 
-pprintln(args...) = pprint(args..., '\n')
-pprint(args...) = pprint(default_pretty(), args...)
+subblock(io::PrettyIO) = subblock(io::PrettyIO, io.indent)
+subblock(io::PrettyIO, indent::Int) = (pre=" "^indent; subpretty(io, pre, pre))
+
+subtree(io::PrettyIO, last::Bool) = subtree(io, last, io.indent)
+function subtree(io::PrettyIO, last::Bool, indent::Int)
+    nsp = indent >= 3 ? 1 : 0
+    sp = " "^nsp
+    subpretty(io, "+"*("-"^(indent-1-nsp))*sp,
+                  last ? " "^indent : "|"*" "^(indent-1-nsp)*sp
+              )
+end
+
+function subpretty(io::PrettyIO, firstprefix::String, restprefix::String)
+    newline_hook = let firstline=true
+        () -> (firstline ? (firstline=false; firstprefix) : restprefix)
+    end
+    PrettyChild(io, newline_hook)
+end
+
+# -- PrettyRoot ---------------------------------------------------------------
+
+type PrettyRoot <: PrettyIO
+    parent::IO
+    width::Int
+    indent::Int
+
+    currpos::Int
+
+    PrettyRoot(parent::IO, width::Int) = PrettyRoot(parent, width, 3)
+    function PrettyRoot(parent::IO, width::Int, indent::Int)
+        @expect width >= 1
+        new(parent, width, indent, 0)
+    end
+end
+
+chars_left_on_line(io::PrettyRoot) = io.width-io.currpos
+
+function pprint(io::PrettyRoot, c::Char)
+    print(io.parent, c)
+    io.currpos += 1
+    if c == '\n'
+        io.currpos = 0
+        return true
+    end
+    if io.currpos >= io.width
+        return pprint(io, '\n')
+    end
+    return false
+end
 
 
+default_pretty() = PrettyRoot(OUTPUT_STREAM, 80)
+
+
+# -- PrettyChild --------------------------------------------------------------
+
+type PrettyChild <: PrettyIO
+    parent::PrettyIO
+    newline_hook::Function
+    indent::Int
+
+    function PrettyChild(parent::PrettyIO, newline_hook::Function)
+        PrettyChild(parent, newline_hook, parent.indent)
+    end
+    function PrettyChild(parent::PrettyIO, newline_hook::Function, indent::Int)
+        new(parent, newline_hook, indent)
+    end
+end
+
+chars_left_on_line(io::PrettyChild) = chars_left_on_line(io.parent)
+
+function pprint(io::PrettyChild, c::Char)
+    newline = pprint(io.parent, c)::Bool
+    if newline
+        pprint(io.parent, io.newline_hook())
+    end
+    return newline
+end
 
