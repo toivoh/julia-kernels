@@ -39,6 +39,19 @@ function evaluate(c::TopsortContext, node::Node)
     nothing
 end
 
+
+# -- nodewise rewrite ---------------------------------------------------------
+
+type Rewriter; rewrite::Function; end
+typealias RewriteContext Context{Rewriter}
+
+rewrite_dag(sink::Node, fun::Function) = evaluate(Context(Rewriter(fun)), sink)
+function evaluate(c::RewriteContext, node::Node)
+    args = evaluate(c, node.args)
+    c.c.rewrite(node, args)
+end
+
+
 # -- scattering fusion --------------------------------------------------------
 
 type Scatterer; end

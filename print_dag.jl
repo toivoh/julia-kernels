@@ -27,6 +27,15 @@ pprint_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
 # -- pprint -------------------------------------------------------------------
 
 function pprint(io::PrettyIO, sink::Node)
+    numassigns::Int = 0
+    rewrite(node::Node, args::Vector) = Node(node, args)
+    function rewrite(node::ActionNode, args::Vector)
+        node = Node(node, args)
+        node.name = symbol("assign"*string(numassigns+=1))
+        node
+    end
+    sink = rewrite_dag(sink, rewrite)
+
     firstnode = true
     for node in forward(sink)
         if has_name(node)
