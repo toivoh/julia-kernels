@@ -5,6 +5,7 @@
 #
 
 load("utils/utils.jl")
+load("utils/prettyprint.jl")
 
 
 abstract Expression
@@ -116,4 +117,15 @@ function check_args(node::AssignNode)
     get_lhs(node)::RefNode
     @expect length(node.args) >= 2
     @expect allp(arg->isa(arg, ActionNode), get_preevents(node))
+end
+
+
+# == prettyprinting ===========================================================
+function pprint(io::PrettyIO, node::Node)
+    pprint(io, "Node(", node.val, ")")
+    for (arg, k) in enumerate(node.args)
+        pprintln(io)
+        subio = subtree(io, k==length(node.args))
+        pprint(subio, arg)
+    end
 end
