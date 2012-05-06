@@ -134,13 +134,13 @@ pprint_nodeval(io::PrettyIO, node::SymNode) = pprint(io,
 
 repargname(argname, n) = (n == 1 ? [argname] : [argname*string(k) for k=1:n])
 
-get_signature(node::CallNode    ) = ("CallNode"    , ["op", "arg"])
-get_signature(node::RefNode     ) = ("RefNode"     , ["A",  "ind"])
-get_signature(node::TupleNode   ) = ("TupleNode"   , ["arg"])
+get_signature(node::CallNode    ) = ("CallNode"    , [".op", ".arg"])
+get_signature(node::RefNode     ) = ("RefNode"     , [".ref",  ".ind"])
+get_signature(node::TupleNode   ) = ("TupleNode"   , [".arg"])
 get_signature(node::KnotNode    ) = ("KnotNode"    , [
-                           repargname("pre",length(node.args)-1), "value"])
-get_signature(node::EllipsisNode) = ("EllipsisNode", ["arg"])
-get_signature(node::AssignNode  ) = ("AssignNode"  , ["lhs", "rhs", "dep"])
+                           repargname(".pre",length(node.args)-1), ".value"])
+get_signature(node::EllipsisNode) = ("EllipsisNode", [".arg"])
+get_signature(node::AssignNode  ) = ("AssignNode"  , [".lhs", ".rhs", ".dep"])
 
 
 pprint_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
@@ -154,21 +154,48 @@ function pprint(io::PrettyIO, node::Node)
         pprint_nodeval(io, node)
     else
         name, argnames = get_signature(node)
-        dlength = length(node.args) - length(argnames)
+        numargs = length(node.args)
+
+        dlength = numargs - length(argnames)
         argnames = [argnames[1:end-1], repargname(argnames[end], 1+dlength)]
 
-        pprint(io, name, "(")
-        let io=subblock(io)
+        new_args_on_next_line::Int = 0
+        on_last_arg::Bool=true
+        on_first_line::Bool=true
+        argindex::Int=1
+        function newline_hook()
+            ofl, on_first_line = on_first_line, false
+            nal, new_args_on_next_line = new_args_on_next_line, 0
+            split = (ofl && argindex > 1) ? ":" : (nal >= 2 ? "#" : "+")
+            extend = (nal >= 2 ? "=" : "-")
+            if nal > 0
+                return split*extend*" "
+            end            
+            return on_last_arg ? "   " : "|  "
+        end
+
+        pprint(io, name, "(", " ")
+        let io=PrettyChild(io, newline_hook)
+            lastverbose = false
             for ((arg, argname), k) in enumerate(zip(node.args, argnames))
+                on_last_arg = k==numargs
+                argindex = k
                 verbose = !has_name(arg)
-                if (k==1) && verbose;  pprint(io, '\n');  end
+                if lastverbose || verbose
+                    if on_last_arg || verbose || !has_name(node.args[k+1])
+                        new_args_on_next_line = 1
+                    else 
+                        new_args_on_next_line = 2
+                    end
+                    pprint(io, '\n')
+                end
                 pprint(io, argname, "=")
                 if verbose;  pprint(io, arg);
                 else         pprint(io, get_name(arg));  end
-                if k<length(argnames)
+                if !on_last_arg
                     pprint(io, ", ")
-                    if verbose;  pprint(io, '\n');  end
                 end
+                lastverbose = verbose
             end
         end
         pprint(io, ")")
