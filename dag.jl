@@ -45,6 +45,10 @@ end
 typealias Nodes Vector{Node}
 
 
+has_name(node::Node) = !is(node.name, nothing)
+get_name(node::Node) = node.name
+
+
 # == Expressions ==============================================================
 
 ## terminals ##
@@ -128,30 +132,51 @@ pprint_nodeval(io::PrettyIO, node::LiteralNode) = pprint(io,
 pprint_nodeval(io::PrettyIO, node::SymNode) = pprint(io, 
                               "SymNode(:$(node.val.name), :$(node.val.kind))")
 
-pprint_nodeval(io::PrettyIO, ::CallNode  ) = pprint(io, "CallNode(args...)"  )
-pprint_nodeval(io::PrettyIO, ::RefNode   ) = pprint(io, "RefNode(args...)"   )
-pprint_nodeval(io::PrettyIO, ::TupleNode ) = pprint(io, "TupleNode(args...)" )
-pprint_nodeval(io::PrettyIO, ::KnotNode  ) = pprint(io, "KnotNode(args...)"  )
-pprint_nodeval(io::PrettyIO, ::EllipsisNode  ) = pprint(io, 
-                                                    "EllipsisNode(args...)"  )
-pprint_nodeval(io::PrettyIO, ::AssignNode) = pprint(io, "AssignNode(args...)")
+repitem(item, count) = [item for k=1:count]
 
-typealias CallNode     Node{CallEx}
-typealias RefNode      Node{RefEx}
-typealias TupleNode    Node{TupleEx}
-typealias KnotNode     Node{KnotEx}
+get_signature(node::CallNode    ) = ("CallNode"    , ["op", "arg"])
+get_signature(node::RefNode     ) = ("RefNode"     , ["A",  "ind"])
+get_signature(node::TupleNode   ) = ("TupleNode"   , ["arg"])
+get_signature(node::KnotNode    ) = ("KnotNode"    , [
+                                repitem("arg",length(node.args)-1), "value"])
+get_signature(node::EllipsisNode) = ("EllipsisNode", ["arg"])
+get_signature(node::AssignNode  ) = ("AssignNode"  , ["lhs", "rhs", "dep"])
 
-typealias EllipsisNode Node{EllipsisEx}
-typealias AssignNode   Node{AssignEx}
 
 pprint_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
 
 
 function pprint(io::PrettyIO, node::Node)
-    pprint_nodeval(io, node)
+    if has_name(node)
+        pprint(io, get_name(node), " = ")
+    end
+    if isa(node, TerminalNode)
+        pprint_nodeval(io, node)
+    else
+        name, argnames = get_signature(node)
+
+        pprint(io, name, "(")
+        dlength = length(node.args) - length(argnames)
+        argnames = [argnames[1:end-1], repitem(argnames[end], 1+dlength)]
+        for (argname, k) in enumerate(argnames)
+            pprint(io, argname)
+            if k<length(argnames)
+                pprint(io, ", ")
+            end
+        end
+        pprint(io, ")")
+    end
     for (arg, k) in enumerate(node.args)
         pprintln(io)
         subio = subtree(io, k==length(node.args))
-        pprint(subio, arg)
+        pprint_compact(subio, arg)
+    end
+end
+
+function pprint_compact(io::PrettyIO, node::Node)
+    if has_name(node)
+        pprint(io, get_name(node))
+    else
+        pprint(io, node)
     end
 end
