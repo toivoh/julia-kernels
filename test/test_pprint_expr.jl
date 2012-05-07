@@ -50,6 +50,13 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
     type Q{T}
         q::Q
     end
+    while 1 < x < 5
+        x += 1
+    end
+    local x::Int
+    global y=4.5
+    const z=3
+    f=x->x^2
 end )
 
 pprint(ex)

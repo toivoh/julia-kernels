@@ -21,30 +21,21 @@ function pprint(io::PrettyIO, s::String)
     end
     for c in s; pprint(io, c); end
 end
-# function pprint(io::PrettyIO, arg::Any)
-#     m = memio()
-#     print(m, arg)
-#     pprint(io, takebuf_string(m))
-# end
 pprint(io::PrettyIO, arg::Any) = pshow(io, arg)
 pprint(io::PrettyIO, args...) = foreach(arg->pprint(io, arg), args)
 
-function pshow(io::PrettyIO, arg::Any)
-    m = memio()
-    show(m, arg)
-    pprint(io, takebuf_string(m))
-end
+pshow(io::PrettyIO, arg::Any) = pprint(io, sshow(arg))
 
 
-pprint(io::PrettyIO, t::Tuple) = pprint(subblock(io), t...)
-pprint(io::PrettyIO, v::Vector) = pprint(subblock(io), v...)
+pprint(io::PrettyIO, t::Tuple) = pprint(indent(io), t...)
+pprint(io::PrettyIO, v::Vector) = pprint(indent(io), v...)
 pprint(io::PrettyIO, pprinter::Function) = pprinter(io)
 
 
 comment(io::PrettyIO) = PrettyChild(io, ()->"# ")
 
-subblock(io::PrettyIO) = subblock(io::PrettyIO, io.indent)
-subblock(io::PrettyIO, indent::Int) = (pre=" "^indent; subpretty(io, pre, pre))
+indent(io::PrettyIO) = indent(io::PrettyIO, io.indent)
+indent(io::PrettyIO, indent::Int) = (pre=" "^indent; PrettyChild(io, ()->pre))
 
 subtree(io::PrettyIO, last::Bool) = subtree(io, last, io.indent)
 function subtree(io::PrettyIO, last::Bool, indent::Int)
@@ -54,7 +45,6 @@ function subtree(io::PrettyIO, last::Bool, indent::Int)
                   last ? " "^indent : "|"*" "^(indent-1-nsp)*sp
               )
 end
-
 function subpretty(io::PrettyIO, firstprefix::String, restprefix::String)
     newline_hook = let firstline=true
         () -> (firstline ? (firstline=false; firstprefix) : restprefix)
@@ -170,6 +160,7 @@ function pshow(io::PrettyIO, ex::Expr)
     nargs = length(args)
 
     const infix = {:(=)=>"=", :(.)=>".", doublecolon=>"::", 
+                   :(->)=>"->", :(=>)=>"=>",
                    :(&&)=>" && ", :(||)=>" || "}
     const parentypes = {:call=>("(",")"), :ref=>("[","]"), :curly=>("{","}")}
 
@@ -178,10 +169,11 @@ function pshow(io::PrettyIO, ex::Expr)
     elseif has(parentypes, head) && nargs >= 1  # :call/:ref/:curly
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], parentypes[head]...)
-    elseif (head == :comparison) && nargs==3    # :comparison
+    elseif (head == :comparison) && (nargs>=3 && isodd(nargs)) # :comparison
         pprint("(",{args},")")
-    elseif ((contains([:return, :abstract] , head) && nargs==1) ||
-        (head == :typealias && nargs==2))       # :return/:abstract/:typealias
+    elseif ((contains([:return, :abstract, :const] , head) && nargs==1) ||
+            contains([:local, :global], head) ||
+            (head == :typealias && nargs==2))  # :return/:abstract/:typealias
         pshow_delim_list(io, args, string(head)*" ", " ", "")
     elseif (head == :quote) && (nargs==1)       # :quote
         pshow_quoted_expr(io, args[1])
@@ -224,12 +216,12 @@ function pshow(io::PrettyIO, ex::Expr)
             io->pshow_headbody(io, args[2:end], args[1]), "\nend")
     elseif head == :block
         pprint(io, "begin ", io->pshow_headbody(io, [], ex), "\nend")
-    elseif contains([:for, :function, :if, :type], head) && nargs == 2
+    elseif contains([:for, :while, :function, :if, :type], head) && nargs == 2
         pprint(io, string(head), " ", 
             io->pshow_headbody(io, args[1:1], args[2]), "\nend")
     else
         pprint(io, head)
-        pshow_comma_list(subblock(io), args, "(", ")")
+        pshow_comma_list(indent(io), args, "(", ")")
     end
 end
 
