@@ -35,6 +35,11 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
     let x=1,y=2
         x+=1
     end
+
+    begin
+        a=1
+        b=2
+    end
 end )
 
 pprint(ex)
