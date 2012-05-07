@@ -15,7 +15,12 @@
 # pprint(io, {a, io->fun(io), b})
 # invokes fun() with an indented io.
 
-load("utils/utils.jl")
+#load("utils/utils.jl")
+
+is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
+function is_expr(ex, head::Symbol, nargs::Int)
+    is_expr(ex, head) && length(ex.args) == nargs
+end
 
 
 pprintln(args...) = pprint(args..., '\n')
@@ -64,7 +69,7 @@ type PrettyRoot <: PrettyIO
     autowrap::Bool
 
     function PrettyRoot(parent::IO, width::Int)
-        @expect width >= 1
+        if width < 1; error("width must be >= 1, got ", width); end
         new(parent, width, 0, false)
     end
 end
