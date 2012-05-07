@@ -1,13 +1,14 @@
 
+load("utils/prettyshow.jl")
 load("transforms.jl")
 
 
 # -- node type specific stuff -------------------------------------------------
 
-pprint_nodeval(io::PrettyIO, node::NoNode) = pprint(io, "NoNode()")
-pprint_nodeval(io::PrettyIO, node::LiteralNode) = pprint(io, 
+pshow_nodeval(io::PrettyIO, node::NoNode) = pprint(io, "NoNode()")
+pshow_nodeval(io::PrettyIO, node::LiteralNode) = pprint(io, 
                                              "LiteralNode($(node.val.value))")
-pprint_nodeval(io::PrettyIO, node::SymNode) = pprint(io, 
+pshow_nodeval(io::PrettyIO, node::SymNode) = pprint(io, 
                               "SymNode(:$(node.val.name), :$(node.val.kind))")
 
 repargname(argname, n) = (n == 1 ? [argname] : [argname*string(k) for k=1:n])
@@ -21,12 +22,12 @@ get_signature(node::EllipsisNode) = ("EllipsisNode", [".arg"])
 get_signature(node::AssignNode  ) = ("AssignNode"  , [".lhs", ".rhs", ".dep"])
 
 
-pprint_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
+pshow_nodeval(io::PrettyIO, node::Node) = pprint(io, "Node(", node.val, ")")
 
 
-# -- pprint -------------------------------------------------------------------
+# -- pshow -------------------------------------------------------------------
 
-function pprint(io::PrettyIO, sink::Node)
+function pshow(io::PrettyIO, sink::Node)
     numassigns::Int = 0
     rewrite(node::Node, args::Vector) = Node(node, args)
     function rewrite(node::ActionNode, args::Vector)
@@ -40,22 +41,22 @@ function pprint(io::PrettyIO, sink::Node)
     for node in forward(sink)
         if has_name(node)
             pprintln(io)
-            pprint_tree(io, node)
+            pshow_tree(io, node)
             firstnode = false
         end
     end
     if !has_name(sink)
         pprintln(io)
-        pprint_tree(io, sink)       
+        pshow_tree(io, sink)       
     end
 end
 
-function pprint_tree(io::PrettyIO, node::Node)
+function pshow_tree(io::PrettyIO, node::Node)
     if has_name(node)
         pprint(io, get_name(node), "=")
     end
     if isa(node, TerminalNode)
-        pprint_nodeval(io, node)
+        pshow_nodeval(io, node)
     else
         name, argnames = get_signature(node)
         numargs = length(node.args)
@@ -98,8 +99,8 @@ function pprint_tree(io::PrettyIO, node::Node)
                     pprint(io, '\n')
                 end
                 pprint(io, argname, "=")
-                if verbose;  pprint_tree(io, arg);
-                else         pprint(io, get_name(arg));  end
+                if verbose;  pshow_tree(io, arg);
+                else         pshow(io, get_name(arg));  end
                 if !on_last_arg
                     pprint(io, ", ")
                 end

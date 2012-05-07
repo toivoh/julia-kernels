@@ -5,7 +5,6 @@
 #
 
 load("utils/utils.jl")
-load("utils/prettyprint.jl")
 
 
 abstract Expression
