@@ -39,13 +39,13 @@ function pprint(io::PrettyIO, sink::Node)
     firstnode = true
     for node in forward(sink)
         if has_name(node)
-            pprint(io, firstnode ? "\n" : "\n\n")
+            pprintln(io)
             pprint_tree(io, node)
             firstnode = false
         end
     end
     if !has_name(sink)
-        pprintln(io, "\n")
+        pprintln(io)
         pprint_tree(io, sink)       
     end
 end
@@ -65,29 +65,32 @@ function pprint_tree(io::PrettyIO, node::Node)
 
         new_args_on_next_line::Int = 0
         on_last_arg::Bool=true
-        #on_first_line::Bool=true
-        #argindex::Int=1
+        on_last_node_line::Bool=true
         function newline_hook()
-#             ofl, on_first_line = on_first_line, false
             nal, new_args_on_next_line = new_args_on_next_line, 0
-#             split = (ofl && argindex > 1) ? ":" : (nal >= 2 ? "#" : "+")
-            split  = (nal >= 2 ? "#" : "+")
+#             split  = (nal >= 2 ? "#" : "+")
+#             split  = on_last_arg ? " " : ((nal >= 2 ? "#" : "+"))
+            split  = on_last_node_line ? "\\" : (nal >= 2 ? "#" : "+")
+#             extend = (nal >= 2 ? "=" : (on_last_arg ? "\\" : "-"))
             extend = (nal >= 2 ? "=" : "-")
             if nal > 0
-                return split*extend*" "
+                return " "*split*extend*" "
             end            
-            return on_last_arg ? "   " : "|  "
+            return on_last_arg ? "    " : " |  "
         end
+
+        verbs = [!has_name(arg) for arg in node.args]
 
         pprint(io, name, "(")
         let io=PrettyChild(io, newline_hook)
             lastverbose = true
             for ((arg, argname), k) in enumerate(zip(node.args, argnames))
                 on_last_arg = k==numargs
-                argindex = k
-                verbose = !has_name(arg)
+                # argindex = k
+                verbose = verbs[k]
+                on_last_node_line = on_last_arg || !any(verbs[k:end])
                 if lastverbose || verbose
-                    if on_last_arg || verbose || !has_name(node.args[k+1])
+                    if on_last_arg || verbose || verbs[k+1]
                         new_args_on_next_line = 1
                     else 
                         new_args_on_next_line = 2
