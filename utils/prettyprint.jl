@@ -108,3 +108,88 @@ function pprint(io::PrettyChild, c::Char)
     return newline
 end
 
+
+# == Expr prettyprinting ======================================================
+
+const doublecolon = @eval (:(x::Int)).head
+
+function pprint_comma_list(io::PrettyIO, args, open, close) 
+    pprint_delim_list(io, args, open, ",", close)
+end
+function pprint_delim_list(io::PrettyIO, args, open, delim, close)
+    let io=subblock(io)
+        pprint(io, open)
+        pprint_list_delim(io, args, delim)
+    end
+    pprint(io, close)
+end
+function pprint_list_delim(io::PrettyIO, args, delim)
+    for (arg, k) in enumerate(args)
+        pprint(io, arg)
+        if k < length(args)
+            pprint(io, delim)
+        end
+    end
+end
+
+
+pprint_body(io, ex) = pprint(io, ex)
+function pprint_body(io, ex::Expr)
+    if ex.head == :block
+        pprint_list_delim(io, ex.args, "\n")
+    else
+        pprint(io, ex)
+    end
+end
+
+function pprint_block(io::PrettyIO, name::String, ex::Expr)
+    pprint(io, name, " ")
+    pprint_block(io, ex)
+end
+function pprint_block(io::PrettyIO, ex::Expr)
+    let io=subblock(io)
+        pprint(io, ex.args[1], "\n")
+        pprint_body(io, ex.args[2])
+    end
+    pprint(io, "\nend\n")
+end
+
+
+function pprint(io::PrettyIO, ex::Expr)
+    head = ex.head
+    args = ex.args
+
+    if head == :(=)
+        pprint(subblock(io), args[1], "=", args[2])
+    elseif head == :(.)
+        pprint(subblock(io), args[1], ".", args[2])
+    elseif (head == :comparison) && length(args)==3
+        pprint(subblock(io), args...)
+    elseif head == doublecolon
+        pprint(subblock(io), args[1], "::", args[2])
+    elseif head == :call
+        pprint(io, args[1])
+        pprint_comma_list(io, args[2:end], "(", ")")
+    elseif head == :let
+        pprint(io, "let ")
+        for arg in args[2:end]
+            pprint_comma_list(io, args[2:end], "", "")
+        end
+        let io=subblock(io)
+            pprint(io, "\n")
+            pprint_body(io, ex.args[1])
+        end
+    elseif head == :block
+        pprint_delim_list(io, args, "begin\n", "\n", "\nend")
+    elseif (head == :if) && length(args) == 2
+        pprint_block(io, "if", ex)
+    elseif (head == :for) && length(args) == 2
+        pprint_block(io, "for", ex)
+    elseif head == :function
+        pprint_block(io, "function", ex)
+    else
+        pprint(io, head, "(")
+        pprint_comma_list(subblock(io), args, "(", ")")
+        pprint(io, ")")
+    end
+end
