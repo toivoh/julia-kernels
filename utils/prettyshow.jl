@@ -120,7 +120,7 @@ end
 const doublecolon = @eval (:(x::Int)).head
 
 function pshow_comma_list(io::PrettyIO, args, open::String, close::String) 
-    pshow_delim_list(io, args, open, ",", close)
+    pshow_delim_list(io, args, open, ", ", close)
 end
 function pshow_delim_list(io::PrettyIO, args, open::String, 
                           delim::String, close::String)
@@ -149,31 +149,15 @@ function pshow_body(io::PrettyIO, ex::Expr)
     end
 end
 
-function pshow_block(io::PrettyIO, name::String, ex::Expr)
-    pprint(io, name, " ")
-    pshow_block(io, ex)
-end
-function pshow_block(io::PrettyIO, ex::Expr)
-    let io=subblock(io)
-        pprint(io, ex.args[1], "\n")
-        pshow_body(io, ex.args[2])
-    end
-    pprint(io, "\nend\n")
-end
-
-
 function pshow(io::PrettyIO, ex::Expr)
     head = ex.head
     args = ex.args
+    nargs = length(args)
 
-    if head == :(=)
-        pprint(subblock(io), args[1], "=", args[2])
-    elseif head == :(.)
-        pprint(subblock(io), args[1], ".", args[2])
-    elseif (head == :comparison) && length(args)==3
+    if contains([:(=), :(.), doublecolon], head) && nargs==2
+        pprint(subblock(io), args[1], string(head), args[2])
+    elseif (head == :comparison) && nargs==3
         pprint(subblock(io), args...)
-    elseif head == doublecolon
-        pprint(subblock(io), args[1], "::", args[2])
     elseif head == :call
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], "(", ")")
@@ -186,14 +170,16 @@ function pshow(io::PrettyIO, ex::Expr)
             pprint(io, "\n")
             pshow_body(io, ex.args[1])
         end
+        pprint(io, "\nend")
     elseif head == :block
         pshow_delim_list(io, args, "begin\n", "\n", "\nend")
-    elseif (head == :if) && length(args) == 2
-        pshow_block(io, "if", ex)
-    elseif (head == :for) && length(args) == 2
-        pshow_block(io, "for", ex)
-    elseif head == :function
-        pshow_block(io, "function", ex)
+    elseif contains([:for, :function, :if], head) && nargs == 2
+        pprint(io, string(head), " ")
+        let io=subblock(io)
+            pprint(io, ex.args[1], "\n")
+            pshow_body(io, ex.args[2])
+        end
+        pprint(io, "\nend")
     else
         pprint(io, head, "(")
         pshow_comma_list(subblock(io), args, "(", ")")
