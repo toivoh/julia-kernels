@@ -157,11 +157,15 @@ function pshow(io::PrettyIO, ex::Expr)
 
     if contains([:(=), :(.), doublecolon], head) && nargs==2
         pprint(subblock(io), args[1], string(head), args[2])
+    elseif contains([:(&&), :(||)], head) && nargs==2
+        pprint(subblock(io), args[1], " ", string(head), " ", args[2])
     elseif (head == :comparison) && nargs==3
         pprint(subblock(io), args...)
-    elseif head == :call
+    elseif (head == :call) && nargs >= 1
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], "(", ")")
+    elseif (head == :return) && nargs==1
+        pprint(io, "return ", args[1])
     elseif (head == :quote) && (nargs==1)
         pshow_quoted_expr(io, args[1])
     elseif (head == :line) && (1 <= nargs <= 2)
@@ -169,6 +173,17 @@ function pshow(io::PrettyIO, ex::Expr)
         if nargs >= 2
             pprint(io, ": ", args[2])
         end
+    elseif head == :if && nargs == 3
+        pprint(io, "if ")
+        let io=subblock(io)
+            pprint(io, ex.args[1], "\n")
+            pshow_body(io, ex.args[2])
+        end
+        pprint(io, "\nelse\n")
+        let io=subblock(io)
+            pshow_body(io, ex.args[3])
+        end
+        pprint(io, "\nend")
     elseif head == :let
         pprint(io, "let ")
         for arg in args[2:end]

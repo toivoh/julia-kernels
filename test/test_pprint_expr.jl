@@ -2,16 +2,20 @@
 load("utils/prettyshow.jl")
 
 ex = :( function pprint(io::PrettyIO, ex::Expr)
-    pprint(io, ex.head, "(")
-    let io=subblock(io)
-        for (arg, k) in enumerate(ex.args)
-            pprint(io, arg)
-            if k < length(ex.args)
-                pprint(io, ", ")
+    if contains([:(=), :(.), doublecolon], head) && nargs==2
+        pprint(subblock(io), args[1], string(head), args[2])
+    else
+        pprint(io, ex.head, "(")
+        let io=subblock(io)
+            for (arg, k) in enumerate(ex.args)
+                pprint(io, arg)
+                if k < length(ex.args)
+                    pprint(io, ", ")
+                end
             end
         end
+        return pprint(io, ")")
     end
-    pprint(io, ")")
 end )
 
 pprint(ex)
