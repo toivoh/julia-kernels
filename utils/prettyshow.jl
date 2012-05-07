@@ -16,7 +16,7 @@ abstract PrettyIO
 
 function pprint(io::PrettyIO, s::String)
     n = strlen(s)
-    if (n <= 20) && (chars_left_on_line(io) < n)
+    if !chars_fit_on_line(io, n)
         pprint(io, '\n')
     end
     for c in s; pprint(io, c); end
@@ -27,7 +27,7 @@ pprint(io::PrettyIO, args...) = foreach(arg->pprint(io, arg), args)
 pshow(io::PrettyIO, arg::Any) = pprint(io, sshow(arg))
 
 
-pprint(io::PrettyIO, t::Tuple) = pprint(indent(io), t...)
+#pprint(io::PrettyIO, t::Tuple) = pprint(indent(io), t...)
 pprint(io::PrettyIO, v::Vector) = pprint(indent(io), v...)
 pprint(io::PrettyIO, pprinter::Function) = pprinter(io)
 
@@ -60,24 +60,37 @@ type PrettyRoot <: PrettyIO
     indent::Int
 
     currpos::Int
+    autowrap::Bool
 
     PrettyRoot(parent::IO, width::Int) = PrettyRoot(parent, width, 4)
     function PrettyRoot(parent::IO, width::Int, indent::Int)
         @expect width >= 1
-        new(parent, width, indent, 0)
+        new(parent, width, indent, 0, false)
     end
 end
 
-chars_left_on_line(io::PrettyRoot) = io.width-io.currpos
+function set_wrap_enable(io::PrettyRoot, wrap::Bool)
+    io.autowrap = (wrap && ((io.currpos*2 <= io.width)) || io.autowrap)
+end
+function chars_fit_on_line(io::PrettyRoot, n::Integer)
+    (!io.autowrap) || (io.currpos+n <= io.width)
+end
 
 function pprint(io::PrettyRoot, c::Char)
-    print(io.parent, c)
-    io.currpos += 1
+    if c=='\t'
+        nsp::Int = (-io.currpos)&7
+        if nsp==0; nsp=8; end
+        print(io.parent, " "^nsp)
+        io.currpos += nsp
+    else
+        print(io.parent, c)
+        io.currpos += 1
+    end
     if c == '\n'
         io.currpos = 0
         return true
     end
-    if io.currpos >= io.width
+    if io.autowrap && (io.currpos >= io.width)
         return pprint(io, '\n')
     end
     return false
@@ -102,13 +115,16 @@ type PrettyChild <: PrettyIO
     end
 end
 
-chars_left_on_line(io::PrettyChild) = chars_left_on_line(io.parent)
+set_wrap_enable(io::PrettyChild, wrap::Bool) = set_wrap_enable(io.parent, wrap)
+chars_fit_on_line(io::PrettyChild, n::Integer) = chars_fit_on_line(io.parent,n)
 
 function pprint(io::PrettyChild, c::Char)
     newline = pprint(io.parent, c)::Bool
+    set_wrap_enable(io.parent, false)
     if newline
         pprint(io.parent, io.newline_hook())
     end
+    set_wrap_enable(io.parent, true)
     return newline
 end
 
@@ -117,15 +133,15 @@ end
 
 const doublecolon = @eval (:(x::Int)).head
 
+## single line list printing
 function pshow_comma_list(io::PrettyIO, args::Vector, 
                           open::String, close::String) 
     pshow_delim_list(io, args, open, ", ", close)
 end
 function pshow_delim_list(io::PrettyIO, args::Vector, open::String, 
                           delim::String, close::String)
-    pprint(io, 
-           (open, 
-                io->pshow_list_delim(io, args, delim)),
+    pprint(io, {open, 
+                io->pshow_list_delim(io, args, delim)},
            close)
 end
 function pshow_list_delim(io::PrettyIO, args::Vector, delim::String)
@@ -137,43 +153,61 @@ function pshow_list_delim(io::PrettyIO, args::Vector, delim::String)
     end
 end
 
+## show the body of a :block
 
-pshow_body(io::PrettyIO, ex) = pshow(io, ex)
-function pshow_body(io::PrettyIO, ex::Expr)
+#  Invoke on the line before the body.
+#  Ends on the last line of the body.
+pshow_mainbody(io::PrettyIO, ex) = pshow(io, ex)
+function pshow_mainbody(io::PrettyIO, ex::Expr)
     if ex.head == :block
-        #pshow_list_delim(io, ex.args, "\n")
         args = ex.args
         for (arg, k) in enumerate(args)
-            pshow(io, arg)
-            if (k < length(args)) && !is_expr(args[k+1], :line)
+            if !is_expr(arg, :line)
                 pprint(io, "\n")
             end
+            pshow(io, arg)
         end
     else
         pshow(io, ex)
     end
 end
 
-function pshow(io::PrettyIO, ex::Expr)
-    head = ex.head
-    args = ex.args
-    nargs = length(args)
+## show arguments of a block, and then body
 
-    const infix = {:(=)=>"=", :(.)=>".", doublecolon=>"::", 
+#  Linebreaks like pshow_mainbody, but indents too
+pshow_body(io::PrettyIO, body::Expr) = pshow_body(io, {}, body)
+function pshow_body(io::PrettyIO, arg, body::Expr)
+    pprint(io, {arg, io->pshow_mainbody(io, body) })
+end
+function pshow_body(io::PrettyIO, args::Vector, body::Expr)
+    pprint(io, {
+            io->pshow_comma_list(io, args, "", ""), 
+            io->pshow_mainbody(io, body)
+        })
+end
+
+## show an expr (prints no initial/final newline)
+function pshow(io::PrettyIO, ex::Expr)
+    const infix = {:(=)=>"=", :(.)=>".", doublecolon=>"::", :(:)=>":",
                    :(->)=>"->", :(=>)=>"=>",
                    :(&&)=>" && ", :(||)=>" || "}
     const parentypes = {:call=>("(",")"), :ref=>("[","]"), :curly=>("{","}")}
 
+    head = ex.head
+    args = ex.args
+    nargs = length(args)
+
     if has(infix, head) && nargs==2             # infix operations
-        pprint(io, "(",(args[1], infix[head], args[2]),")")
+        pprint(io, "(",{args[1], infix[head], args[2]},")")
     elseif has(parentypes, head) && nargs >= 1  # :call/:ref/:curly
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], parentypes[head]...)
     elseif (head == :comparison) && (nargs>=3 && isodd(nargs)) # :comparison
         pprint("(",{args},")")
     elseif ((contains([:return, :abstract, :const] , head) && nargs==1) ||
-            contains([:local, :global], head) ||
-            (head == :typealias && nargs==2))  # :return/:abstract/:typealias
+            contains([:local, :global], head))
+        pshow_comma_list(io, args, string(head)*" ", "")
+    elseif head == :typealias && nargs==2
         pshow_delim_list(io, args, string(head)*" ", " ", "")
     elseif (head == :quote) && (nargs==1)       # :quote
         pshow_quoted_expr(io, args[1])
@@ -186,7 +220,7 @@ function pshow(io::PrettyIO, ex::Expr)
 #               linecomment = "line "*string(args[1])*", "*string(args[2])*": "
                 linecomment = string(args[2])*", line "*string(args[1])*": "
             end
-            if chars_left_on_line(io) >= strlen(linecomment)+13
+            if chars_fit_on_line(io, strlen(linecomment)+13)
                 pprint(io, "\t#  ", linecomment)
             else
                 pprint(io, "\n", linecomment)
@@ -194,42 +228,27 @@ function pshow(io::PrettyIO, ex::Expr)
         end
     elseif head == :if && nargs == 3  # if/else
         pprint(io, 
-            "if ", (ex.args[1], #"\n", 
-                io->pshow_body(io, ex.args[2])
-            ), "\nelse", {#"\n",
-                io->pshow_body(io, ex.args[3])
-            }, "\nend")
+            "if ", io->pshow_body(io, args[1], args[2]),
+            "\nelse ", io->pshow_body(io, args[3]),
+            "\nend")
     elseif head == :try && nargs == 3 # try[/catch]
-        pprint(io, 
-            "try", (#"\n",
-                io->pshow_body(io, ex.args[1]),
-        ))
-        if !(is(ex.args[2], false) && is_expr(ex.args[3], :block, 0))
-            pprint(io, 
-                "\ncatch ", ex.args[2], {#"\n",
-                    io->pshow_body(io, ex.args[1])
-            })
+        pprint(io, "try ", io->pshow_body(io, args[1]))
+        if !(is(args[2], false) && is_expr(args[3], :block, 0))
+            pprint(io, "\ncatch ", io->pshow_body(io, args[2], args[3]))
         end
         pprint(io, "\nend")
     elseif head == :let               # :let 
         pprint(io, "let ", 
-            io->pshow_headbody(io, args[2:end], args[1]), "\nend")
+            io->pshow_body(io, args[2:end], args[1]), "\nend")
     elseif head == :block
-        pprint(io, "begin ", io->pshow_headbody(io, [], ex), "\nend")
+        pprint(io, "begin ", io->pshow_body(io, ex), "\nend")
     elseif contains([:for, :while, :function, :if, :type], head) && nargs == 2
         pprint(io, string(head), " ", 
-            io->pshow_headbody(io, args[1:1], args[2]), "\nend")
+            io->pshow_body(io, args[1], args[2]), "\nend")
     else
         pprint(io, head)
         pshow_comma_list(indent(io), args, "(", ")")
     end
-end
-
-function pshow_headbody(io::PrettyIO, args::Vector, body::Expr)
-    pprint(io, (
-            io->pshow_comma_list(io, args, "", ""), #"\n",
-            io->pshow_body(io, body)
-        ))
 end
 
 
@@ -242,11 +261,7 @@ function pshow_quoted_expr(io::PrettyIO, sym::Symbol)
 end
 function pshow_quoted_expr(io::PrettyIO, ex::Expr)
     if ex.head == :block
-        #pshow_delim_list(io, ex.args, "quote\n", "\n", "\nend")
-        pprint(io, 
-            "quote ", {#"\n",
-                io->pshow_body(io, ex)
-            }, "\nend")        
+        pprint(io, "quote ", io->pshow_body(io, ex), "\nend")
     else
         pprint(io, "quote(", {ex}, ")")
     end

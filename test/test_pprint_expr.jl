@@ -54,6 +54,7 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
         x += 1
     end
     local x::Int
+    local x,y,z
     global y=4.5
     const z=3
     f=x->x^2
