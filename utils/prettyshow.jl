@@ -36,6 +36,11 @@ function pshow(io::PrettyIO, arg::Any)
 end
 
 
+pprint(io::PrettyIO, t::Tuple) = pprint(subblock(io), t...)
+pprint(io::PrettyIO, v::Vector) = pprint(subblock(io), v...)
+pprint(io::PrettyIO, pprinter::Function) = pprinter(io)
+
+
 subblock(io::PrettyIO) = subblock(io::PrettyIO, io.indent)
 subblock(io::PrettyIO, indent::Int) = (pre=" "^indent; subpretty(io, pre, pre))
 
@@ -64,7 +69,7 @@ type PrettyRoot <: PrettyIO
 
     currpos::Int
 
-    PrettyRoot(parent::IO, width::Int) = PrettyRoot(parent, width, 3)
+    PrettyRoot(parent::IO, width::Int) = PrettyRoot(parent, width, 4)
     function PrettyRoot(parent::IO, width::Int, indent::Int)
         @expect width >= 1
         new(parent, width, indent, 0)
@@ -125,11 +130,10 @@ function pshow_comma_list(io::PrettyIO, args, open::String, close::String)
 end
 function pshow_delim_list(io::PrettyIO, args, open::String, 
                           delim::String, close::String)
-    let io=subblock(io)
-        pprint(io, open)
-        pshow_list_delim(io, args, delim)
-    end
-    pprint(io, close)
+    pprint(io, 
+           (open, 
+                io->pshow_list_delim(io, args, delim)),
+           close)
 end
 function pshow_list_delim(io::PrettyIO, args, delim::String)
     for (arg, k) in enumerate(args)
@@ -156,11 +160,11 @@ function pshow(io::PrettyIO, ex::Expr)
     nargs = length(args)
 
     if contains([:(=), :(.), doublecolon], head) && nargs==2
-        pprint(subblock(io), args[1], string(head), args[2])
+        pprint(io, (args[1], string(head), args[2]))
     elseif contains([:(&&), :(||)], head) && nargs==2
-        pprint(subblock(io), args[1], " ", string(head), " ", args[2])
+        pprint(io, (args[1], " ", string(head), " ", args[2]))
     elseif (head == :comparison) && nargs==3
-        pprint(subblock(io), args...)
+        pprint((args,))
     elseif (head == :call) && nargs >= 1
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], "(", ")")
@@ -177,49 +181,37 @@ function pshow(io::PrettyIO, ex::Expr)
             pprint(io, ": ", args[2])
         end
     elseif head == :if && nargs == 3
-        pprint(io, "if ")
-        let io=subblock(io)
-            pprint(io, ex.args[1], "\n")
-            pshow_body(io, ex.args[2])
-        end
-        pprint(io, "\nelse")
-        let io=subblock(io)
-            pprintln(io)
-            pshow_body(io, ex.args[3])
-        end
-        pprint(io, "\nend")
+        pprint(io, 
+            "if ", (ex.args[1], "\n", 
+                io->pshow_body(io, ex.args[2])
+            ), "\nelse", ("\n",
+                io->pshow_body(io, ex.args[3])
+            ), "\nend")
     elseif head == :try && nargs == 3
-        pprint(io, "try\n")
-        let io=subblock(io)
-            pshow_body(io, ex.args[1])
-        end
+        pprint(io, 
+            "try", ("\n",
+                io->pshow_body(io, ex.args[1]),
+        ))
         if !(is(ex.args[2], false) && 
             is_expr(ex.args[3], :block) && length(ex.args[3].args)==0)
-            pprint(io, "\ncatch ", ex.args[2], "\n")
-            let io=subblock(io)
-                pshow_body(io, ex.args[3])
-            end
+            pprint(io, 
+                "\ncatch ", ex.args[2], ("\n",
+                    io->pshow_body(io, ex.args[1])
+            ))
         end
         pprint(io, "\nend")
     elseif head == :let
-        pprint(io, "let ")
-        for arg in args[2:end]
-            pshow_comma_list(io, args[2:end], "", "")
-        end
-        let io=subblock(io)
-            pprint(io, "\n")
-            pshow_body(io, ex.args[1])
-        end
-        pprint(io, "\nend")
+        pprint(io, "let ", (
+                io->pshow_comma_list(io, args[2:end], "", ""), "\n",
+                io->pshow_body(io, ex.args[1])
+            ), "\nend")
     elseif head == :block
         pshow_delim_list(io, args, "begin\n", "\n", "\nend")
     elseif contains([:for, :function, :if], head) && nargs == 2
-        pprint(io, string(head), " ")
-        let io=subblock(io)
-            pprint(io, ex.args[1], "\n")
-            pshow_body(io, ex.args[2])
-        end
-        pprint(io, "\nend")
+        pprint(io, 
+            string(head), " ", (ex.args[1], "\n",
+                io->pshow_body(io, ex.args[2])
+            ), "\nend")
     else
         pprint(io, head)
         pshow_comma_list(subblock(io), args, "(", ")")
@@ -235,15 +227,8 @@ function pshow_quoted_expr(io::PrettyIO, sym::Symbol)
 end
 function pshow_quoted_expr(io::PrettyIO, ex::Expr)
     if ex.head == :block
-        pprint(io, string(head), " ")
-        let io=subblock(io)
-            pprint(io, ex.args[1], "\n")
-            pshow_body(io, ex.args[2])
-        end
-        pprint(io, "\nend")
+        pshow_delim_list(io, ex.args, "quote\n", "\n", "\nend")
     else
-        pprint(io, "quote(")
-        pshow(subblock(io), ex)
-        pprint(io, ")")
+        pprint(io, "quote(", (ex,), ")")
     end
 end
