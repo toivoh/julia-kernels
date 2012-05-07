@@ -127,17 +127,18 @@ end
 
 const doublecolon = @eval (:(x::Int)).head
 
-function pshow_comma_list(io::PrettyIO, args, open::String, close::String) 
+function pshow_comma_list(io::PrettyIO, args::Vector, 
+                          open::String, close::String) 
     pshow_delim_list(io, args, open, ", ", close)
 end
-function pshow_delim_list(io::PrettyIO, args, open::String, 
+function pshow_delim_list(io::PrettyIO, args::Vector, open::String, 
                           delim::String, close::String)
     pprint(io, 
            (open, 
                 io->pshow_list_delim(io, args, delim)),
            close)
 end
-function pshow_list_delim(io::PrettyIO, args, delim::String)
+function pshow_list_delim(io::PrettyIO, args::Vector, delim::String)
     for (arg, k) in enumerate(args)
         pshow(io, arg)
         if k < length(args)
@@ -168,23 +169,23 @@ function pshow(io::PrettyIO, ex::Expr)
     args = ex.args
     nargs = length(args)
 
+    const infix = {:(=)=>"=", :(.)=>".", doublecolon=>"::", 
+                   :(&&)=>" && ", :(||)=>" || "}
     const parentypes = {:call=>("(",")"), :ref=>("[","]"), :curly=>("{","}")}
 
-    if contains([:(=), :(.), doublecolon], head) && nargs==2
-        pprint(io, (args[1], string(head), args[2]))
-    elseif contains([:(&&), :(||)], head) && nargs==2
-        pprint(io, (args[1], " ", string(head), " ", args[2]))
-    elseif (head == :comparison) && nargs==3
-        pprint({args})
-    elseif has(parentypes, head) && nargs >= 1
+    if has(infix, head) && nargs==2             # infix operations
+        pprint(io, "(",(args[1], infix[head], args[2]),")")
+    elseif has(parentypes, head) && nargs >= 1  # :call/:ref/:curly
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], parentypes[head]...)
+    elseif (head == :comparison) && nargs==3    # :comparison
+        pprint("(",{args},")")
     elseif ((contains([:return, :abstract] , head) && nargs==1) ||
-        (head == :typealias && nargs==2))
+        (head == :typealias && nargs==2))       # :return/:abstract/:typealias
         pshow_delim_list(io, args, string(head)*" ", " ", "")
-    elseif (head == :quote) && (nargs==1)
+    elseif (head == :quote) && (nargs==1)       # :quote
         pshow_quoted_expr(io, args[1])
-    elseif (head == :line) && (1 <= nargs <= 2)
+    elseif (head == :line) && (1 <= nargs <= 2) # :line
         let io=comment(io)
             if nargs == 1
                 linecomment = "line "*string(args[1])*": "
@@ -199,45 +200,46 @@ function pshow(io::PrettyIO, ex::Expr)
                 pprint(io, "\n", linecomment)
             end
         end
-    elseif head == :if && nargs == 3
+    elseif head == :if && nargs == 3  # if/else
         pprint(io, 
             "if ", (ex.args[1], #"\n", 
                 io->pshow_body(io, ex.args[2])
-            ), "\nelse", (#"\n",
+            ), "\nelse", {#"\n",
                 io->pshow_body(io, ex.args[3])
-            ), "\nend")
-    elseif head == :try && nargs == 3
+            }, "\nend")
+    elseif head == :try && nargs == 3 # try[/catch]
         pprint(io, 
             "try", (#"\n",
                 io->pshow_body(io, ex.args[1]),
         ))
         if !(is(ex.args[2], false) && is_expr(ex.args[3], :block, 0))
             pprint(io, 
-                "\ncatch ", ex.args[2], (#"\n",
+                "\ncatch ", ex.args[2], {#"\n",
                     io->pshow_body(io, ex.args[1])
-            ))
+            })
         end
         pprint(io, "\nend")
-    elseif head == :let
-        pprint(io, "let ", (
-                io->pshow_comma_list(io, args[2:end], "", ""), #"\n",
-                io->pshow_body(io, ex.args[1])
-            ), "\nend")
+    elseif head == :let               # :let 
+        pprint(io, "let ", 
+            io->pshow_headbody(io, args[2:end], args[1]), "\nend")
     elseif head == :block
-        pprint(io, 
-            "begin ", {#"\n",
-                io->pshow_body(io, ex)
-            }, "\nend")
+        pprint(io, "begin ", io->pshow_headbody(io, [], ex), "\nend")
     elseif contains([:for, :function, :if, :type], head) && nargs == 2
-        pprint(io, 
-            string(head), " ", (ex.args[1], #"\n",
-                io->pshow_body(io, ex.args[2])
-            ), "\nend")
+        pprint(io, string(head), " ", 
+            io->pshow_headbody(io, args[1:1], args[2]), "\nend")
     else
         pprint(io, head)
         pshow_comma_list(subblock(io), args, "(", ")")
     end
 end
+
+function pshow_headbody(io::PrettyIO, args::Vector, body::Expr)
+    pprint(io, (
+            io->pshow_comma_list(io, args, "", ""), #"\n",
+            io->pshow_body(io, body)
+        ))
+end
+
 
 function pshow_quoted_expr(io::PrettyIO, sym::Symbol)
     if !is(sym,:(:)) && !is(sym,:(==))
