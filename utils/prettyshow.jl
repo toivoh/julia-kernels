@@ -192,8 +192,7 @@ function pshow(io::PrettyIO, ex::Expr)
             "try", ("\n",
                 io->pshow_body(io, ex.args[1]),
         ))
-        if !(is(ex.args[2], false) && 
-            is_expr(ex.args[3], :block) && length(ex.args[3].args)==0)
+        if !(is(ex.args[2], false) && is_expr(ex.args[3], :block, 0))
             pprint(io, 
                 "\ncatch ", ex.args[2], ("\n",
                     io->pshow_body(io, ex.args[1])
