@@ -4,6 +4,7 @@ load("utils/utils.jl")
 
 pprintln(args...) = pprint(args..., '\n')
 pprint(args...) = pprint(default_pretty(), args...)
+pshow(args...)  = pshow(default_pretty(), args...)
 
 # fallback for io::IO
 pprint(io::IO, args...) = print(io, args...) 
@@ -161,6 +162,13 @@ function pshow(io::PrettyIO, ex::Expr)
     elseif head == :call
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], "(", ")")
+    elseif (head == :quote) && (nargs==1)
+        pshow_quoted_expr(io, args[1])
+    elseif (head == :line) && (1 <= nargs <= 2)
+        pprint(io, "# line ", args[1])
+        if nargs >= 2
+            pprint(io, ": ", args[2])
+        end
     elseif head == :let
         pprint(io, "let ")
         for arg in args[2:end]
@@ -181,8 +189,29 @@ function pshow(io::PrettyIO, ex::Expr)
         end
         pprint(io, "\nend")
     else
-        pprint(io, head, "(")
+        pprint(io, head)
         pshow_comma_list(subblock(io), args, "(", ")")
+    end
+end
+
+function pshow_quoted_expr(io::PrettyIO, sym::Symbol)
+    if !is(sym,:(:)) && !is(sym,:(==))
+        pprint(io, ":$sym")
+    else
+        pprint(io, ":($sym)")
+    end
+end
+function pshow_quoted_expr(io::PrettyIO, ex::Expr)
+    if ex.head == :block
+        pprint(io, string(head), " ")
+        let io=subblock(io)
+            pprint(io, ex.args[1], "\n")
+            pshow_body(io, ex.args[2])
+        end
+        pprint(io, "\nend")
+    else
+        pprint(io, "quote(")
+        pshow(subblock(io), ex)
         pprint(io, ")")
     end
 end
