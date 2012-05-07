@@ -168,20 +168,20 @@ function pshow(io::PrettyIO, ex::Expr)
     args = ex.args
     nargs = length(args)
 
+    const parentypes = {:call=>("(",")"), :ref=>("[","]"), :curly=>("{","}")}
+
     if contains([:(=), :(.), doublecolon], head) && nargs==2
         pprint(io, (args[1], string(head), args[2]))
     elseif contains([:(&&), :(||)], head) && nargs==2
         pprint(io, (args[1], " ", string(head), " ", args[2]))
     elseif (head == :comparison) && nargs==3
         pprint({args})
-    elseif (head == :call) && nargs >= 1
+    elseif has(parentypes, head) && nargs >= 1
         pprint(io, args[1])
-        pshow_comma_list(io, args[2:end], "(", ")")
-    elseif (head == :ref) && nargs >= 1
-        pprint(io, args[1])
-        pshow_comma_list(io, args[2:end], "[", "]")
-    elseif (head == :return) && nargs==1
-        pprint(io, "return ", args[1])
+        pshow_comma_list(io, args[2:end], parentypes[head]...)
+    elseif ((contains([:return, :abstract] , head) && nargs==1) ||
+        (head == :typealias && nargs==2))
+        pshow_delim_list(io, args, string(head)*" ", " ", "")
     elseif (head == :quote) && (nargs==1)
         pshow_quoted_expr(io, args[1])
     elseif (head == :line) && (1 <= nargs <= 2)
@@ -193,8 +193,8 @@ function pshow(io::PrettyIO, ex::Expr)
 #               linecomment = "line "*string(args[1])*", "*string(args[2])*": "
                 linecomment = string(args[2])*", line "*string(args[1])*": "
             end
-            if chars_left_on_line(io) >= strlen(linecomment)+4
-                pprint(io, " #  ", linecomment)
+            if chars_left_on_line(io) >= strlen(linecomment)+13
+                pprint(io, "\t#  ", linecomment)
             else
                 pprint(io, "\n", linecomment)
             end
@@ -228,7 +228,7 @@ function pshow(io::PrettyIO, ex::Expr)
             "begin ", {#"\n",
                 io->pshow_body(io, ex)
             }, "\nend")
-    elseif contains([:for, :function, :if], head) && nargs == 2
+    elseif contains([:for, :function, :if, :type], head) && nargs == 2
         pprint(io, 
             string(head), " ", (ex.args[1], #"\n",
                 io->pshow_body(io, ex.args[2])
@@ -248,7 +248,11 @@ function pshow_quoted_expr(io::PrettyIO, sym::Symbol)
 end
 function pshow_quoted_expr(io::PrettyIO, ex::Expr)
     if ex.head == :block
-        pshow_delim_list(io, ex.args, "quote\n", "\n", "\nend")
+        #pshow_delim_list(io, ex.args, "quote\n", "\n", "\nend")
+        pprint(io, 
+            "quote ", {#"\n",
+                io->pshow_body(io, ex)
+            }, "\nend")        
     else
         pprint(io, "quote(", {ex}, ")")
     end

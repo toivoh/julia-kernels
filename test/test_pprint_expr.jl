@@ -40,6 +40,16 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
         a=1
         b=2
     end
+
+    abstract R<:S
+    type T
+        x::Int
+    end
+    typealias P T
+
+    type Q{T}
+        q::Q
+    end
 end )
 
 pprint(ex)
