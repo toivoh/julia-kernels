@@ -16,6 +16,15 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
         end
         return pprint(io, ")")
     end
+
+    try
+        a
+    end
+    try
+        a
+    catch x
+        b
+    end
 end )
 
 pprint(ex)

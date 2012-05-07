@@ -164,6 +164,9 @@ function pshow(io::PrettyIO, ex::Expr)
     elseif (head == :call) && nargs >= 1
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], "(", ")")
+    elseif (head == :ref) && nargs >= 1
+        pprint(io, args[1])
+        pshow_comma_list(io, args[2:end], "[", "]")
     elseif (head == :return) && nargs==1
         pprint(io, "return ", args[1])
     elseif (head == :quote) && (nargs==1)
@@ -179,9 +182,23 @@ function pshow(io::PrettyIO, ex::Expr)
             pprint(io, ex.args[1], "\n")
             pshow_body(io, ex.args[2])
         end
-        pprint(io, "\nelse\n")
+        pprint(io, "\nelse")
         let io=subblock(io)
+            pprintln(io)
             pshow_body(io, ex.args[3])
+        end
+        pprint(io, "\nend")
+    elseif head == :try && nargs == 3
+        pprint(io, "try\n")
+        let io=subblock(io)
+            pshow_body(io, ex.args[1])
+        end
+        if !(is(ex.args[2], false) && 
+            is_expr(ex.args[3], :block) && length(ex.args[3].args)==0)
+            pprint(io, "\ncatch ", ex.args[2], "\n")
+            let io=subblock(io)
+                pshow_body(io, ex.args[3])
+            end
         end
         pprint(io, "\nend")
     elseif head == :let
