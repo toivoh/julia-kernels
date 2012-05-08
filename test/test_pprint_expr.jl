@@ -1,5 +1,5 @@
 
-load("utils/prettyshow.jl")
+load("prettyshow/prettyshow.jl")
 
 ex = :( function pprint(io::PrettyIO, ex::Expr)
     if contains([:(=), :(.), doublecolon], head) && nargs==2
