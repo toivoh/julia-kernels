@@ -4,7 +4,7 @@ Toivo Henningsson
 
 This is a small suite of tools aimed at being able to write kernels in Julia, 
 which could be executed on the CPU, or as GPU kernels. 
-The current version has a simple Julia backend, 
+The current version has a simple Julia backend; 
 speed seems to be somewhat slower than a handcoded kernel. 
 
 Change history:
@@ -33,8 +33,9 @@ which would be roughly equivalent to
     end
 
 if `A, B, C, D` are 2d `Arrays` of the same size. 
+The `[...]` syntax expands within the `@kernel` block to denote an apropriate number of `:`.
 One difference is that the value of the `@kernel let` block is `nothing`.
-(Plan: allow to specify a value/value tuple) as last expression)   
+(Planned: allow to specify a value/value tuple) as the last expression in a `@kernel block`)   
 
 The idea is to implement a subset of Julia that can be easily converted into a kernel. 
 (Though the syntax is slightly different so far, eg `dest[...]` 
@@ -56,7 +57,7 @@ The internal structure of julia-kernels is currently
 
 The **DAG** subpackage encompasses directed acyclic graph (DAG)
 representation of computations, and graph manipulation.
-The DAG format is the common language of the other parts.   
+This DAG format is the common language of the other parts. 
 **Main** connects everything together and implements the `@kernel` macro.
 
 DAG
@@ -67,9 +68,12 @@ DAG
            dag/pshow_dag.jl   Pretty-printing of DAGs. 
                               Relies on prettyshow/prettyshow.jl
 
-`dag/dag.jl:` DAG nodes are represented by the type `Node{T<:Expression}`.
-A DAG can represent linear julia code faithfully, but it can also represent other things.
+The basic DAG structure is heavily inspired from julia ASTs.
+A DAG can represent linear julia code, but also other things.
+A DAG is easier to manipulate than an AST, e g since one can use dispatch on node types,
+and add metadata to nodes.
 
+DAG nodes are represented by the type `Node{T<:Expression}` defined in `dag/dag.jl`.
 Each node has arguments `args::Vector{Node}`, 
 and a value `val::T` that contains data particular to the node's type.
 Node types are distinguished by the type `T<:Expression` of `val`.
