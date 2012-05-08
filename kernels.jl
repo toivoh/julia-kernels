@@ -8,6 +8,7 @@ load("utils/staged.jl")
 load("utils/utils.jl")
 load("dag/transforms.jl")
 load("tangle.jl")
+load("midsection.jl")
 load("julia_backend.jl")
 
 
