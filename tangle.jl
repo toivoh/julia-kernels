@@ -31,14 +31,15 @@ end
 
 # == tangle ===================================================================
 
-function tangle(code)
+tangle(code) = raw_tangle(code)[1]
+function raw_tangle(code)
     context = TangleContext()
     value = tangle(context, code)
     if is((value::Node).name, nothing);  value.name = :value;  end
 #    sink = TupleNode(context.last_line, context.last_actions..., value)
     sink = TupleNode(context.last_actions..., value)
     sink.name = :sink
-    value, sink, context
+    sink, context
 end
 
 

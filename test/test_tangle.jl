@@ -13,7 +13,7 @@ code = :(let
 end)
 
 
-rawdag = tangle(code.args[1])[2]
+rawdag = tangle(code.args[1])
 
 kernelargs = collect_arguments(rawdag)
 gendag = general_transform(rawdag)

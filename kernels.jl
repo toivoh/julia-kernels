@@ -19,8 +19,7 @@ function ast_to_gendag(code)
     # Front end: ast --> dag
     @expect is_expr(code, :let)
     @expect length(code.args) == 1 # no let arguments, just body
-#     value, rawdag, context = tangle(code.args[1])
-    rawdag = tangle(code.args[1])[2]
+    rawdag = tangle(code.args[1])
 
     # Front midsection: DAG transforms independent of argument types
     kernelargs = collect_arguments(rawdag)
