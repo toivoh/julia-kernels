@@ -38,7 +38,6 @@ end
 # Transform raw DAG independent of argument types
 function general_transform(rawdag::Node)
     dag2 = scattered(rawdag)
-    dag3 = count_uses(dag2)
 end
 
 

@@ -29,6 +29,12 @@ emit(c::UntangleContext, ex) = (push(c.c.code, ex); nothing)
 # -- untangle -----------------------------------------------------------------
 
 function untangle(sink::Node)
+    sink = name_fanout_nodes(sink)
+    sink = name_nodes_uniquely(sink)
+    raw_untangle(sink)
+end
+
+function raw_untangle(sink::Node)
     c = UntangleContext()
     value = evaluate(c, sink)
     value, c.c.code

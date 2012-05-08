@@ -15,16 +15,6 @@ D = [ 0  0  0
 #     dest2[...] = A + C
 # end
 
-# value, dag, context = tangle(code)
-# dag2 = scattered(dag)
-# dag3 = count_uses(dag2)
-# order!(dag3)
-# flat_code = untangle(dag3)
-
-# arguments = append(get(dag3.symnode_names, :output, Symbol{}),
-#                    get(dag3.symnode_names, :input,  Symbol{}))
- 
-# fdef, arguments = make_kernel(code, 2)
 
 @kernel let
     A = B.*C + D

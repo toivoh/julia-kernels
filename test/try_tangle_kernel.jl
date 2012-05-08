@@ -11,16 +11,6 @@ code = quote
     A[...] = B.*C + D
 end
 
-# value, dag, context = tangle(code)
-# dag2 = scattered(dag)
-# dag3 = count_uses(dag2)
-# order!(dag3)
-
-# arguments = append(get(dag3.symnode_names, :output, Symbol{}),
-#                    get(dag3.symnode_names, :input,  Symbol{}))
-
-# flat_code = untangled(dag3)
-
 
 nd = 2
 staged = true
