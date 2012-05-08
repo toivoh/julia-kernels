@@ -68,7 +68,7 @@ DAG
            dag/pshow_dag.jl   Pretty-printing of DAGs. 
                               Relies on prettyshow/prettyshow.jl
 
-The basic DAG structure is heavily inspired from julia ASTs.
+The basic DAG structure is heavily inspired of julia ASTs.
 A DAG can represent linear julia code, but also other things.
 A DAG is easier to manipulate than an AST, e g since one can use dispatch on node types,
 and add metadata to nodes.
@@ -79,14 +79,15 @@ and a vector of arguments `args::Vector{Node}`
 that contains all the node's dependencies on other nodes.
 Node types are distinguished by the type `T<:Expression` of `val`.
 There is a hierarchy of `Expression` types in `dag/dag.jl`, 
-and a corresponding hierarchy of `Node` types.
-A DAG is represented by its _sink_ node, which depends directly or indirectly on all other nodes in the DAG. The code uses a `TupleNode` as a supersink to gather multiple sinks.
+and a corresponding hierarchy of `Node` types. 
+A DAG is represented by its _sink_ node, which depends directly or indirectly 
+on all other nodes in the DAG. The code uses a `TupleNode` as a supersink to gather multiple sinks.
 
 `dag/transforms.jl` contains tools to transform DAGs into new DAGs (or other things). The convention is that a DAG is immutable once it is created; all transformations create new DAGs.
 
 `dag/pshow_dag.jl` implements pretty-printing of DAG:s by
-`pshow(sink)/pprint(sink)`. See `test/test_pshow_dag.jl` for an example.   
-The underlying `prettyshow/prettyshow.jl´ can also
+`pshow(sink)/pprint(sink)`. See `test/test_pshow_dag.jl` for an example.
+The underlying `prettyshow/prettyshow.jl` can also
 be used to pretty print julia ASTs, see `test/test_pshow_expr.jl`.
 
 Front end
@@ -101,8 +102,8 @@ Back end
 --------
 `julia_backend.jl` implements `untangle(sink::Node)` to create a 
 julia AST from a DAG. 
-It also contains `wrap_kernel_body()` to add the necessary for loops around
-the produced julia code.
+It also contains `wrap_kernel_body()` to add the necessary `for` loops around
+the raw julia kernel code.
 
 Main
 ----
@@ -117,4 +118,4 @@ Utils
 -----
 `utils/` contains various utils used by different files.
 I want to thank Jeff Bezanson for creating the `@staged` macro,
-(in `utils/staged.jl`) which I'm using for the backend. Great work!
+(in `utils/staged.jl`) which I'm using for argument type specialization. Great work!
