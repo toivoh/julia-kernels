@@ -22,6 +22,8 @@ function evaluate(c::ScatterContext, node::Union(CallNode,RefNode))
 end
 
 
+# == Front midsection =========================================================
+
 # -- scatter propagation ------------------------------------------------------
 
 type ScatterPropagator; end
@@ -68,4 +70,25 @@ function scattered_op(ex::SymbolEx)
         error("scattered: cannot scatter op = ", op)
     end
     SymNode(op, :call)
+end
+
+
+# == Back midsection ==========================================================
+
+function expand_ellipsis_indexing(sink::Node, indvars::Vector{Symbol})
+    indvars = { SymNode(indvar, :local) for indvar in indvars }
+    rewrite_dag(sink, (node, args)->expandell_rewrite(node, args, indvars))
+end
+
+function expandell_rewrite(oldnode::Node, args::Vector, indvars::Vector) 
+    Node(oldnode, args)
+end
+function expandell_rewrite(oldnode::RefNode, args::Vector, indvars::Vector)
+    inds = get_inds(oldnode)
+    if (length(inds)==1) && (inds[1].val==SymbolEx(:..., :symbol))
+        newinds = {args[1], indvars...}
+        return Node(oldnode, newinds)
+    else
+        return Node(oldnode, args)
+    end
 end
