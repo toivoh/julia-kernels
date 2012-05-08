@@ -34,18 +34,26 @@ The idea is to implement a subset of Julia that can be easily converted into a k
 (Though the syntax is slightly different so far, eg `dest[...]` 
 instead of `dest[:,:]`)
 
+Example usage: see `test/test_kernels.jl`
+
 Internals
 =========
-julia-kernels currently consists of the following parts:   
+The internal structure of julia-kernels is currently
 
-**DAG:** directed acyclic graph representation of computations, along with graph manipulation. The DAG format is the common language of the other parts.   
-**Front end:**  Turns julia abstract syntax trees (AST) into DAG:s.   
-**Midsection:** Transforms DAG:s into new ones.   
-**Back end:**   Turns a DAG into a runnable kernel function.   
-**Main:**       Connects the parts to together and defines the `@kernel` macro.
+                        DAG
+                         ^
+      +------------------+----------------+
+      |                  |                |
+    Front end        Midsection        Back end
+      ^                  ^                ^
+      +------------------+----------------+
+                         |
+                        Main
 
-The dependence structure is simple: everything depends on **DAG**,
-and only **Main**, which ties it all together, depends on anything else.
+The **DAG** subpackage encompasses directed acyclic graph (DAG)
+representation of computations, and graph manipulation.
+The DAG format is the common language of the other parts.   
+**Main** connects everything together and implements the `@kernel` macro.
 
 DAG
 ---
@@ -68,8 +76,9 @@ A DAG is represented by its _sink_ node, which depends indirectly on all other n
 `dag/transforms.jl` contains tools to transform DAGs into new DAGs (or other things). The convention is that a DAG is immutable once it is created; all transformations create new DAGs.
 
 `dag/pshow_dag.jl` implements pretty-printing of DAG:s by
-`pshow(sink)/pprint(sink)`. The underlying `prettyshow/prettyshow.jl´ can also
-be used to pretty print julia ASTs.
+`pshow(sink)/pprint(sink)`. See `test/test_pshow_dag.jl` for an example.   
+The underlying `prettyshow/prettyshow.jl´ can also
+be used to pretty print julia ASTs, see `test/test_pshow_expr.jl`.
 
 Front end
 ---------
