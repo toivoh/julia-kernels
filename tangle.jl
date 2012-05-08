@@ -38,7 +38,7 @@ function raw_tangle(code)
     if is((value::Node).name, nothing);  value.name = :value;  end
 #    sink = TupleNode(context.last_line, context.last_actions..., value)
     sink = TupleNode(context.last_actions..., value)
-    sink.name = :sink
+    #sink.name = :sink
     sink, context
 end
 
