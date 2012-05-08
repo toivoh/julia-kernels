@@ -1,6 +1,6 @@
 julia-kernels v0.1
 ==================
-Copyright (c) 2012 Toivo Henningsson (toivo.h.h@gmail.com)
+Copyright (c) 2012 Toivo Henningsson (toivo.h.h@gmail.com), see LICENSE.md
 
 This is a small suite of tools aimed at being able to write kernels in Julia, 
 which could be executed on the CPU, or as GPU kernels. 
