@@ -37,6 +37,8 @@ function pshow(io::PrettyIO, sink::Node)
         node
     end
     sink = rewrite_dag(sink, rewrite)
+    sink = name_fanout_nodes(sink)
+    sink = name_nodes_uniquely(sink)
 
     firstnode = true
     for node in forward(sink)
