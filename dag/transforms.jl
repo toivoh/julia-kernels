@@ -6,7 +6,7 @@
 
 
 load("utils/cached.jl")
-#load("dag.jl")
+load("dag/dag.jl")
 
 
 # -- evaluation ---------------------------------------------------------------

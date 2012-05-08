@@ -4,7 +4,7 @@
 # Convert Julia AST:s to DAG:s in dag.jl format
 #
 
-load("dag.jl")
+load("dag/dag.jl")
 
 
 # == TangleContext ============================================================
