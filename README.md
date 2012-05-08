@@ -40,15 +40,13 @@ Internals
 =========
 The internal structure of julia-kernels is currently
 
-                        DAG
-                         ^
-      +------------------+----------------+
-      |                  |                |
-    Front end        Midsection        Back end
-      ^                  ^                ^
-      +------------------+----------------+
-                         |
-                        Main
+                     DAG
+                      ^
+        +-------------+------------+
+    Front end    Mid section    Back end
+        ^             ^            ^
+        +-------------+------------+
+                     Main
 
 The **DAG** subpackage encompasses directed acyclic graph (DAG)
 representation of computations, and graph manipulation.
@@ -100,9 +98,9 @@ Main
 `kernels.jl` implements the `@kernel` macro.
 It ties the parts together to form the processing chain
 
-    AST --> raw DAG --> general DAG --> argument type specific DAG --> kernel
-    Front end | Front midsection |  Back midsection  |         Back end
-           Front half            |               Back half
+    AST --> raw DAG   -->   general DAG --> argument type specific DAG --> kernel
+    Front end | Front midsection |  Back midsection   |          Back end
+            Front half           |                Back half
 
 Utils
 -----
