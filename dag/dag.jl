@@ -74,6 +74,14 @@ type           AssignEx <: Action; end
 type       EllipsisEx   <: Nonterminal; end
 
 
+## expression comparison ##
+# (expression types without fields compare by identity already
+isequal(n1::SymbolEx,  n2::SymbolEx) = (n1.name, n1.kind)==(n2.name, n2.kind)
+isequal(n1::LiteralEx, n2::LiteralEx) = n1.value==n2.value
+
+
+# -- Node types ---------------------------------------------------------------
+
 ## Node type aliases ##
 
 typealias TerminalNode{T<:Terminal}    Node{T}
