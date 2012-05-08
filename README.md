@@ -1,35 +1,38 @@
-julia-kernels v0.0
+julia-kernels v0.1
 ==================
 Toivo Henningsson
 
-This is a small suite of tools aimed at being able to write kernels in Julia, which could be executed on the CPU, or as GPU kernels. 
-The current version has a Julia backend, speed seems to be on the same order of magnitude as hand coded for loops.
+This is a small suite of tools aimed at being able to write kernels in Julia, 
+which could be executed on the CPU, or as GPU kernels. 
+The current version has a simple Julia backend, 
+speed seems to be somewhat slower than a handcoded kernel. 
 
 Usage
 -----
 
 The currently supported syntax is
 
-    @kernel 2 begin
+    @kernel let
         A = B.*C + D
-        dest1[] = A
-        dest2[] = A + C
+        dest1[...] = A
+        dest2[...] = A + C
     end
 
 which would be roughly equivalent to
 
-    A = B.*C + D
-    dest1[:,:] = A
-    dest2[:,:] = A + C
+    let
+        A = B.*C + D
+        dest1[:,:] = A
+        dest2[:,:] = A + C        
+    end
 
-if `A, B, C, D` are 2d `Arrays` of the same size. One difference is that the intermediate variable `A` is not exported from the `@kernel` block.
-The first parameter to `@kernel` (`2` in this example)
-specifies the number of dimensions -- it should go away soon!
+if `A, B, C, D` are 2d `Arrays` of the same size. 
+One difference is that the value of the `@kernel let` block is `nothing`.
+(Plan: allow to specify a value/value tuple) as last expression)   
 
-The idea is to implement a subset of Julia which can be easily converted into a kernel. (Though the syntax is so far slightly different, eg `dest[]` instead of `dest[:,:]`)   
-The front end that produces raw kernel code from the argument to `@kernel` might conceivable also be useful for creating raw kernel code from other kinds of sources, which can then be handed to a back end.
-
-Example: `test_kernels.jl`
+The idea is to implement a subset of Julia that can be easily converted into a kernel. 
+(Though the syntax is slightly different so far, eg `dest[...]` 
+instead of `dest[:,:]`)
 
 Under the hood
 --------------
