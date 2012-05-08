@@ -11,8 +11,8 @@ load("transforms.jl")
 load("julia_backend.jl")
 
 
-function collect_arguments(bottom::Node)
-    symnode_names = collect_symnode_names(bottom)
+function collect_arguments(sink::Node)
+    symnode_names = collect_symnode_names(sink)
     append(get(symnode_names, :output, Symbol{}),
            get(symnode_names, :input,  Symbol{}))
 end

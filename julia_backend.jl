@@ -27,9 +27,9 @@ emit(c::UntangleContext, ex) = (push(c.c.code, ex); nothing)
 
 # -- untangle -----------------------------------------------------------------
 
-function untangle(bottom::Node)
+function untangle(sink::Node)
     c = UntangleContext()
-    value = evaluate(c, bottom)
+    value = evaluate(c, sink)
     value, c.c.code
 end
 
@@ -66,4 +66,4 @@ end
 
 # -- printing -----------------------------------------------------------------
 
-print_untangled(bottom::Node) = (print_list(untangle(bottom)[2]))
+print_untangled(sink::Node) = (print_list(untangle(sink)[2]))

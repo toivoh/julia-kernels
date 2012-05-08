@@ -31,7 +31,7 @@ evaluate(c::Context, node::Node) = Node(node, (@cached evaluate(c, node.args)))
 type Topsorter; end
 typealias TopsortContext Context{Topsorter}
 
-forward(bottom::Node) = @task evaluate(TopsortContext(), bottom)
+forward(sink::Node) = @task evaluate(TopsortContext(), sink)
 
 function evaluate(c::TopsortContext, node::Node)
     evaluate(c, node.args)
@@ -90,9 +90,9 @@ end
 
 # -- Collect SymNode names ----------------------------------------------------
 
-function collect_symnode_names(bottom::Node)
+function collect_symnode_names(sink::Node)
     allnames = Dict{Symbol,Vector{Symbol}}()
-    for node in forward(bottom)
+    for node in forward(sink)
         if isa(node, SymNode)
             names = @setdefault allnames[node.val.kind] Symbol[]
             push(names, node.val.name)
