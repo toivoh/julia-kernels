@@ -42,9 +42,17 @@ function scattered(c::ScatterPropContext, ns::Vector)#Nodes)
     { (@cached scattered(c, node))|node in ns }
 end
 function scattered(c::ScatterPropContext, node::CallNode)
-    op = scattered_op(get_op(node).val)
-    args = scattered(c, get_callargs(node))
-    CallNode(op, args...)
+    op = get_op(node).val
+    if op == SymbolEx(:scatter, :call)
+        # let scatter*scatter = scatter
+        args = get_callargs[node]
+        @expect length(args)==1
+        return scattered(c, args[1])
+    else
+        op = scattered_op(op)
+        args = scattered(c, get_callargs(node))
+        return CallNode(op, args...)
+    end
 end
 # todo: scattered for other node types: RefNode, ...more?
 function scattered(c::ScatterPropContext, node::SymNode)

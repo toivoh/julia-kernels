@@ -8,6 +8,7 @@ req("midsection.jl")
 
 code = :( let
     dest[...] = scatter(A.*B + C)
+    dest2[...] = A[scatter(B)]
 end )
 
 rawdag = tangle(code.args[1])
