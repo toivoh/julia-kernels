@@ -4,27 +4,51 @@
 # The @kernel macro and associated machinery
 #
 
-load("utils/staged.jl")
-load("utils/utils.jl")
-load("tangle.jl")
-load("transforms.jl")
-load("julia_backend.jl")
+load("utils/req.jl")
+req("utils/staged.jl")
+req("utils/utils.jl")
+req("dag/transforms.jl")
+req("tangle.jl")
+req("midsection.jl")
+req("julia_backend.jl")
 
 
-function collect_arguments(bottom::Node)
-    symnode_names = collect_symnode_names(bottom)
+# -- Front half: code -> general DAG (no argument types available yet) --------
+
+function ast_to_gendag(code)
+    # Front end: ast --> dag
+    @expect is_expr(code, :let)
+    @expect length(code.args) == 1 # no let arguments, just body
+#     value, rawdag, context = tangle(code.args[1])
+    rawdag = tangle(code.args[1])[2]
+
+    # Front midsection: DAG transforms independent of argument types
+    kernelargs = collect_arguments(rawdag)
+    gendag = general_transform(rawdag)
+    
+    (kernelargs, gendag)
+end
+
+function collect_arguments(sink::Node)
+    symnode_names = collect_symnode_names(sink)
     append(get(symnode_names, :output, Symbol{}),
            get(symnode_names, :input,  Symbol{}))
 end
 
-# transform raw DAG independent of argument types
+# Transform raw DAG independent of argument types
 function general_transform(rawdag::Node)
     dag2 = scattered(rawdag)
-    dag3 = count_uses(dag2)
 end
+
+
+# -- Back half: (general DAG, argtypes) -> specific kernel body ---------------
 
 function gendag_to_specbody(gendag::Node, argnames::Vector{Symbol},
                             argtypes::Vector{Type})
+
+    # todo: Add middle processing dependent on argtypes
+
+    # Back end: Create julia code and wrap into for loops
     value, flat_code = untangle(gendag)
 
     indvars = (:_i, :_j, :_k, :_l) # todo: use gensyms instead
@@ -35,36 +59,28 @@ function gendag_to_specbody(gendag::Node, argnames::Vector{Symbol},
 end
 
 
+# -- @kernel ------------------------------------------------------------------
+
 macro kernel(code)
     code_kernel(code)
 end
 function code_kernel(code)
-    # Front end: ast --> dag
-    #   todo: check format here. e g let/function/?
-    @expect is_expr(code, :let)
-    @expect length(code.args) == 1 # no let arguments, just body
-#     value, rawdag, context = tangle(code.args[1])
-    rawdag = tangle(code.args[1])[2]
-
-    # Front midsection: dag transforms independent of argument types
-    kernelargs = collect_arguments(rawdag)
-    gendag = general_transform(rawdag)
-
     # Front end: 
-    #   create staged kernel function
+    #   process code as far as we can without argument types
+    kernelargs, gendag = ast_to_gendag(code)
+
+    #   create staged kernel function to invoke back half
     @gensym kernel
     @eval begin
         @staged function ($kernel)($kernelargs...)
-            # Back half: 
-            #   Back midsection: argument type dependent transforms
-            #   Back end: kernel instantiation
+            # Back half
             gendag_to_specbody(($gendag), 
                                Symbol[{$quoted_exprs(kernelargs)...}...],
                                Type[{$kernelargs...}...])
         end
     end
 
-    #    and insert a call to it in the code
+    #    finally insert a call to it in the code
     quote
         ($kernel)($kernelargs...)
     end

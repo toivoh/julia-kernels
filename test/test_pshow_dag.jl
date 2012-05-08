@@ -1,5 +1,7 @@
-load("kernels.jl")
-load("print_dag.jl")
+
+load("utils/req.jl")
+req("kernels.jl")
+req("dag/pshow_dag.jl")
 
 # code = quote
 #     A = B.*C + D[j,i]

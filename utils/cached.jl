@@ -1,7 +1,6 @@
 
-#load("utils/utils.jl")
-
-const doublecolon = @eval (:(x::Int)).head
+load("utils/req.jl")
+req("utils/utils.jl")
 
 type Unfinished; end
 unfinished = Unfinished()

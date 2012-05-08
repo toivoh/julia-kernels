@@ -81,7 +81,7 @@ end
 function pprint_nowrap(io::PrettyRoot, c::Char)
     if c=='\t'
         nsp::Int = (-io.currpos)&7
-        if nsp==0; nsp=8; end
+        #if nsp==0; nsp=8; end
         print(io.parent, " "^nsp)
         io.currpos += nsp
     else
@@ -211,7 +211,8 @@ function pshow(io::PrettyIO, ex::Expr)
     nargs = length(args)
 
     if has(infix, head) && nargs==2             # infix operations
-        pprint(io, "(",{args[1], infix[head], args[2]},")")
+#        pprint(io, "(",{args[1], infix[head], args[2]},")")
+        pprint(io, {args[1], infix[head], args[2]})
     elseif has(parentypes, head) && nargs >= 1  # :call/:ref/:curly
         pprint(io, args[1])
         pshow_comma_list(io, args[2:end], parentypes[head]...)
