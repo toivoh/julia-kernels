@@ -4,6 +4,10 @@ Toivo Henningsson
 
 This is a small suite of tools aimed at being able to write kernels in Julia, 
 which could be executed on the CPU, or as GPU kernels. 
+The idea is to implement a subset of Julia that can be easily converted into a kernel. 
+(Though the syntax `dest[...]` is only supported in `@kernel` blocks.)
+The pipeline structure of the code should also allow to plug other front/back ends onto
+the internal transformations.
 The current version has a simple Julia backend; 
 speed seems to be somewhat slower than a handcoded kernel. 
 
@@ -36,10 +40,6 @@ if `A, B, C, D` are 2d `Arrays` of the same size.
 The `[...]` syntax expands within the `@kernel` block to denote an apropriate number of `:`.
 One difference is that the value of the `@kernel let` block is `nothing`.
 (Planned: allow to specify a value/value tuple) as the last expression in a `@kernel block`)   
-
-The idea is to implement a subset of Julia that can be easily converted into a kernel. 
-(Though the syntax is slightly different so far, eg `dest[...]` 
-instead of `dest[:,:]`)
 
 Example usage: see `test/test_kernels.jl`
 
