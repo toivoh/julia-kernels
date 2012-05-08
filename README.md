@@ -78,9 +78,9 @@ Each node has a value `val::T` particular to its type,
 and a vector of arguments `args::Vector{Node}` 
 that contains all the node's dependencies on other nodes.
 Node types are distinguished by the type `T<:Expression` of `val`.
-The `Expression` hierarchy, and corrsponding `Node` hierarchy,
-makes it convenient to manipulate DAGs using dispatch on node type.   
-A DAG is represented by its _sink_ node, which depends indirectly on all other nodes in the DAG. The code uses a `TupleNode` as a supersink to gather multiple sinks.
+There is a hierarchy of `Expression` types in `dag/dag.jl`, 
+and a corresponding hierarchy of `Node` types.
+A DAG is represented by its _sink_ node, which depends directly or indirectly on all other nodes in the DAG. The code uses a `TupleNode` as a supersink to gather multiple sinks.
 
 `dag/transforms.jl` contains tools to transform DAGs into new DAGs (or other things). The convention is that a DAG is immutable once it is created; all transformations create new DAGs.
 
