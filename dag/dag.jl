@@ -4,7 +4,8 @@
 # Node types for DAG
 #
 
-load("utils/utils.jl")
+load("utils/req.jl")
+req("utils/utils.jl")
 
 
 abstract Expression

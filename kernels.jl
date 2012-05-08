@@ -4,12 +4,13 @@
 # The @kernel macro and associated machinery
 #
 
-load("utils/staged.jl")
-load("utils/utils.jl")
-load("dag/transforms.jl")
-load("tangle.jl")
-load("midsection.jl")
-load("julia_backend.jl")
+load("utils/req.jl")
+req("utils/staged.jl")
+req("utils/utils.jl")
+req("dag/transforms.jl")
+req("tangle.jl")
+req("midsection.jl")
+req("julia_backend.jl")
 
 
 # -- Front half: code -> general DAG (no argument types available yet) --------

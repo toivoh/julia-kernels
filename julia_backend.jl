@@ -1,5 +1,6 @@
 
-load("dag/transforms.jl")
+load("utils/req.jl")
+req("dag/transforms.jl")
 
 # -- toexpr -------------------------------------------------------------------
 

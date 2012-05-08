@@ -1,6 +1,7 @@
 
-load("prettyshow/prettyshow.jl")
-load("dag/transforms.jl")
+load("utils/req.jl")
+req("prettyshow/prettyshow.jl")
+req("dag/transforms.jl")
 
 
 # -- node type specific stuff -------------------------------------------------

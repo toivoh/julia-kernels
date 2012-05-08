@@ -4,9 +4,9 @@
 # Transformations on DAG:s
 #
 
-
-load("utils/cached.jl")
-load("dag/dag.jl")
+load("utils/req.jl")
+req("utils/cached.jl")
+req("dag/dag.jl")
 
 
 # -- evaluation ---------------------------------------------------------------
