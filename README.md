@@ -7,6 +7,12 @@ which could be executed on the CPU, or as GPU kernels.
 The current version has a simple Julia backend, 
 speed seems to be somewhat slower than a handcoded kernel. 
 
+Change history:
+---------------
+v0.1: Changed syntax from `@kernel begin` to `@kernel let` and eliminated `nd` parameter.   
+Pulled apart `flatten` to form `tangle`, `DAG`, `transforms` and `untangle`.   
+Added pretty-printing of DAGs and ASTs.
+
 Usage
 -----
 
