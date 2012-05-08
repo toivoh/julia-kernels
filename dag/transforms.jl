@@ -23,7 +23,9 @@ Context{C}(c::C) = Context{C}(c)
 cacheentry(f::Function, c::Context, args...) = cacheentry(f, c.cache, args...)
 
 evaluate(c::Context, ns::Nodes) = { (@cached evaluate(c, node))|node in ns }
-evaluate(c::Context, node::Node) = Node(node, (@cached evaluate(c, node.args)))
+
+default_evaluate(c::Context, node::Node) = Node(node, evaluate(c, node.args))
+evaluate(c::Context, node::Node) = default_evaluate(c, node)
 
 
 # -- topsort iteration --------------------------------------------------------
