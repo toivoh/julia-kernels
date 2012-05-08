@@ -74,8 +74,9 @@ A DAG is easier to manipulate than an AST, e g since one can use dispatch on nod
 and add metadata to nodes.
 
 DAG nodes are represented by the type `Node{T<:Expression}` defined in `dag/dag.jl`.
-Each node has arguments `args::Vector{Node}`, 
-and a value `val::T` that contains data particular to the node's type.
+Each node has a value `val::T` particular to its type,
+and a vector of arguments `args::Vector{Node}` 
+that contains all the node's dependencies on other nodes.
 Node types are distinguished by the type `T<:Expression` of `val`.
 The `Expression` hierarchy, and corrsponding `Node` hierarchy,
 makes it convenient to manipulate DAGs using dispatch on node type.   
