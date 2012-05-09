@@ -58,6 +58,15 @@ ex = :( function pprint(io::PrettyIO, ex::Expr)
     global y=4.5
     const z=3
     f=x->x^2
+
+    for i=1:5, j=1:5
+        if i<j
+            A[i,j] = i*j
+        else
+            A[i,j] = 0
+        end
+    end
+
 end )
 
 pprint(ex)

@@ -167,6 +167,7 @@ function pshow_mainbody(io::PrettyIO, ex::Expr)
             pshow(io, arg)
         end
     else
+        if !is_expr(ex, :line);  pprint(io, "\n");  end
         pshow(io, ex)
     end
 end
