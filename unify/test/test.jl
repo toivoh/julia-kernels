@@ -32,9 +32,6 @@ end
 
 @pvar X Y
 
-@show Typed(Int, X)
-@show Typed(None, X)
-
 println()
 @show restrict(Int, 1)
 @show restrict(Float, 1)
@@ -66,13 +63,13 @@ println()
 
 println()
 @symshowln unify(Xr, Xi)
-@symshowln unify(Xi, Xr)
-@symshowln unify(Xi, Xf)
+@symshow unify(Xi, Xf)
 
 println()
 @symshow unify(Xi, 2)
 @symshow unify(Xr, 2.0)
 @symshow unify(Xi, 2.0)
+@symshow unify(Xi, 2.5)
 
 println()
 @symshow unify(anyvalue, 1)

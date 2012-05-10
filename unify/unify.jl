@@ -2,39 +2,47 @@
 load("utils/req.jl")
 req("utils/utils.jl")
 
-# Patterns that can match a different type than their own
-abstract Pattern
-# Patterns without a specified value type
-abstract Untyped <: Pattern
+abstract Pattern # Patterns that can match a different type than their own
+abstract Untyped  <: Pattern # Patterns without a specified value type
+abstract Typed{T} <: Pattern # Patterns that match only values of type T
 
-# A pattern that only matches objects of type <: T
-type Typed{T} <: Pattern
-    p::Untyped
-end
-
-type Universal <: Untyped; end
-const anyvalue  = Universal()            # The pattern that matches anything
-const nonevalue = Typed{None}(anyvalue)  # The pattern that matches nothing
-
-# todo: Can I make the inner constructor always return nonevalue
-# when T = None too?
-# consider: should Typed have subtypes for Universal vs PVar content?
-Typed{T}(::Type{T}, p::Untyped) = is(T,None) ? nonevalue : Typed{T}(p)
-
+# need these:?
 valtype{T}(::Typed{T}) = T
+# valtype(::Unyped) = Any
 
+ # Pattern that matches all values of type T
+type TypePattern{T} <: Typed{T}; end
+typealias Universal TypePattern{Any}
+typealias Unpattern TypePattern{None}
+
+# Return a pattern that matches any value of type T
+match(T) = TypePattern{T}()
+
+const anyvalue  = match(Any)   # The pattern that matches anything
+const nonevalue = match(None)  # The pattern that matches nothing
 
 show(io::IO, ::Universal) = print(io, "anyvalue")
-show(io::IO, p::Typed{None}) = print(io, "nonevalue")
-show{T}(io::IO, p::Typed{T}) = print(io, "Typed($T, $(p.p))")
+show(io::IO, ::Unpattern) = print(io, "nonevalue")
+show{T}(io::IO, p::TypePattern{T}) = print(io, "match($T)")
 
 # pattern variable, compares by identity
 type PVar <: Untyped
     name::Symbol
 end
 
+# A typed pattern variable
+type TVar{T} <: Typed{T}
+    X::PVar
+end
+
+
+
 pvar(name::Symbol) = PVar(name)
+pvar(T, name::Symbol) = TVar{T}(PVar(name))
 pvar(names::(Symbol...)) = map(pvar, names)
+
+show(io::IO, p::PVar) = print(io, "pvar(:$(p.name))")
+show{T}(io::IO, p::TVar{T}) = print(io, "pvar($T,:$(p.X.name))")
 
 # usage: @pvar X Y   ==> X, Y = pvar((:X, :Y))
 macro pvar(args...)
@@ -45,21 +53,28 @@ macro pvar(args...)
     end
 end
 
+# return the untyped value held inside p::Typed
+# (though anyvalue is nominally typed)
+get_p( ::TypePattern) = anyvalue
+get_p(p::TVar) = p.X
 
-# Return a pattern that matches any value of type T
-match(T) = Typed(T, anyvalue)
 
 # restrict(T, x): 
 # Return the restriction of the pattern x to value type T
-restrict(::Type{Any}, x) = x
-restrict(::Type{Any}, x::Typed) = x
-restrict(::Type{Any}, x::Untyped) = x
+restrict(::Type{Any}, x)              = x
+restrict(::Type{Any}, x::TypePattern) = x
+restrict(::Type{Any}, x::TVar)        = x
+restrict(::Type{Any}, x::PVar)        = x
 
-restrict{T}(R, t::Typed{T}) = restrict(tintersect(R,T), t.p)
-restrict(T, p::Untyped) = Typed(T, p)
-restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Pattern:s
+restrict(::Type{None}, ::Any)         = nonevalue
+restrict(::Type{None}, ::TypePattern) = nonevalue
+restrict(::Type{None}, ::TVar)        = nonevalue
+restrict(::Type{None}, ::PVar)        = nonevalue
 
-
+restrict(T, p::PVar) = TVar{T}(p)
+restrict{T}(R, t::TypePattern{T}) = TypePattern{tintersect(R,T)}()
+restrict{T}(R, t::TVar{T}) = restrict(tintersect(R,T), t.X)
+restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Patterns
 
 
 # -- unify --------------------------------------------------------------------
@@ -99,28 +114,32 @@ function unify(m::Matching, x,y)
     isa(y,Pattern) ? unify(m, y,x) : (isequal(x,y) ? x : nonevalue)
 end
 
-unify(m::Matching, ::Universal,y) = y
-unify(m::Matching, X::PVar,y)  = ubind(m, X,y)
+unify(m::Matching, X::PVar,     y)           = ubind(m, X,y)
+unify(m::Matching, X::Universal,y::TVar) = ubind(m, y.X,y)
+unify(m::Matching, X::Universal,y)           = y
 
-# Note: calls unify(::Matching, X::Untyped,y::Typed);
-# unify(::Matching, X::Untyped,y) is defined for all X!
-unify{T}(m::Matching, X::Typed{T},y) = unify(m, X.p, restrict(T, y))
+# Note: calls 
+# unify(::Matching, X::PVar,y::Typed);
+# unify(::Matching, X::Universal,y::Typed);
+unify{T}(m::Matching, X::Typed{T},y) = unify(m, get_p(X), restrict(T, y))
+
 
 # bind X => y in b, and return the unification of X and y given b
+#ubind{T}(m::Matching, X::PVar,y::Unpattern) = nonevalue
+#ubind{T}(m::Matching, X::PVar,y::TypePattern{T}) = ubind(m, X,restrict(T,X))
 function ubind(m::Matching, X::PVar,y)
-    if has(m, X) 
-        # unify the present binding of X with the new one
-        x = m[X]
-        z = unify(m, x,y)
-        if is(z,X); return X; end
-        return m[X] = z
-    else
-        if is(y,anyvalue); return X; end
-        if isa(y,Typed) && is(y.p, anyvalue)
-            return m[X] = restrict(valtype(y), X)
+    x = get(m, X, X)          # default: implicit binding X := X
+    if is(x,X)
+        if isa(y, TypePattern)
+            z = restrict(valtype(y), X)
+        else
+            z = y
         end
-        return m[X] = y
+    else
+        z = unify(m, x,y)      # unify with previous binding
     end
+    if is(z,X); return X; end # don't bother to bind X := X
+    return m[X] = z           # return new binding
 end
 
 
