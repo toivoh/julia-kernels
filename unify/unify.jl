@@ -85,49 +85,46 @@ restrict{T}(R, t::TVar{T}) = restrict(tintersect(R,T), t.X)
 restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Patterns
 
 
-# == Matching =================================================================
+# == Subs =====================================================================
 
-type Matching
+type Subs
     d::Dict{PVar,Any}
-    Matching() = new(Dict{PVar,Any}())
+    overdet::Bool
+    Subs() = new(Dict{PVar,Any}())
 end
 
 type Unfinished; end
-const unfinished = Unfinished();
+const unfinished = Unfinished()  # used to detect cyclic dependencies
 
-expand(m::Matching,  ::PVar,::TypePattern) = error("TypePattern:s should "*
-                                                   "never be stored in m.d")
 # circular dependency ==> no finite pattern matches
-expand(m::Matching, X::PVar,::Unfinished) = (m.d[X] = nonevalue)
+expand(s::Subs, X::PVar,::Unfinished) = (s.overdet = true; s.d[X] = nonevalue)
+expand(s::Subs,  ::PVar,::TypePattern) = error("TypePattern:s should "*
+                                                   "never be stored in s.d")
 
-function expand(m::Matching, x)
+function expand(s::Subs, x)
     @assert !is(x,X)    # should never store X=X
     if isa(x, TVar) && (is(x.X,X)); return x; end
 
-    m.d[X] = unfinished
-    x = m[x]             # look up x
-    return m.d[X] = x    # store and return
+    s.d[X] = unfinished
+    x = s[x]             # look up x
+    return s.d[X] = x    # store and return
 end
 
-function ref(m::Matching, X::PVar)
-    if has(m.d, X)
-        x = m.d[X]
+function ref(s::Subs, X::PVar)
+    if has(s.d, X)
+        x = s.d[X]
         return expand(m, X,x)
     else
         return X
     end
 end
 
-# Add the constraint X==y in m, 
-# and return the unification of X and y given m
-function meet(m::Matching, X::PVar,y)
-#    x = get(m.d, X, X)          # default: implicit binding X := X
-#     if isa(y,PVar)  # if y is a variable: look it up. multiple times?
-#         y = get(m.d, y, y)
-#     elseif isa(y,TVar) && has(m.d, y.X)
-#         y = restrict(valuetype(y), m[y])
-#     end
-    x = m[X]
+# Add the constraint X==y in s, 
+# and return the unification of X and y given s
+function meet(s::Subs, X::PVar,y)
+    todo: rewrite
+
+    x = s.d[X]
     if is(x,X)
         if isa(y, TypePattern)
             z = restrict(valtype(y), X)
@@ -138,7 +135,7 @@ function meet(m::Matching, X::PVar,y)
         z = unify(m, x,y)      # unify with previous binding
     end
     if is(z,X); return X; end # don't bother to bind X := X
-    return m.d[X] = z           # return new binding
+    return s.d[X] = z           # return new binding
 end
 
 
@@ -155,7 +152,7 @@ macro retnaught(ex)
     end
 end
 
-# unify(m::Matching, x, y)
+# unify(s::Subs, x, y)
 # -----------------------
 # Find the bindings needed to make the patterns x==y,
 # (along with the ones already present in b), 
@@ -165,28 +162,28 @@ end
 
 # unify x and y into z
 # return (z, matching) if z != nonevalue; nonevalue otherwise.
-unify(x,y) = (m = Matching(); z = unify(m, x,y); is(z, nonevalue) ? z : (z, m))
+unify(x,y) = (s = Subs(); z = unify(s, x,y); is(z, nonevalue) ? z : (z, s))
 
 
 # Match if equal. This is the only unification that applies to atoms.
-function unify(m::Matching, x::Pattern,y) 
-    error("Unimplemented: unify(::Matching, ::$(typeof(x)), ::$(typeof(y)))")
+function unify(s::Subs, x::Pattern,y) 
+    error("Unimplemented: unify(::Subs, ::$(typeof(x)), ::$(typeof(y)))")
 end
-function unify(m::Matching, x,y) 
+function unify(s::Subs, x,y) 
     isa(y,Pattern) ? unify(m, y,x) : (isequal(x,y) ? x : nonevalue)
 end
 
-unify(m::Matching, X::PVar,     y)       = meet(m, X,y)
-unify(m::Matching, X::Universal,y::TVar) = meet(m, y.X,y)
-unify(m::Matching, X::Universal,y)       = y
+unify(s::Subs, X::PVar,     y)       = meet(s, X,y)
+unify(s::Subs, X::Universal,y::TVar) = meet(s, y.X,y)
+unify(s::Subs, X::Universal,y)       = y
 
-# Note: calls unify(::Matching, ::Union(PVar,Universal),y::Typed)
-unify{T}(m::Matching, X::Typed{T},y) = unify(m, get_p(X), restrict(T, y))
+# Note: calls unify(::Subs, ::Union(PVar,Universal),y::Typed)
+unify{T}(s::Subs, X::Typed{T},y) = unify(s, get_p(X), restrict(T, y))
 
 
 # -- Vector unification -------------------------------------------------------
 
-function unify(m::Matching, xs::Vector, ys::Vector)
+function unify(s::Subs, xs::Vector, ys::Vector)
     nx, ny = map(length, (xs, ys))
     if nx != ny;  return  nonevalue;  end
 
@@ -195,7 +192,7 @@ function unify(m::Matching, xs::Vector, ys::Vector)
 
     zs = Array(T,nx)
     for k=1:nx
-        zs[k] = (@retnaught unify(m, xs[k],ys[k]))
+        zs[k] = (@retnaught unify(s, xs[k],ys[k]))
     end
     zs
 end
