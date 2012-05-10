@@ -85,10 +85,41 @@ restrict{T}(R, t::TVar{T}) = restrict(tintersect(R,T), t.X)
 restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Patterns
 
 
-# -- unify --------------------------------------------------------------------
+# == Matching =================================================================
 
-# Matching of pattern variables to values
-typealias Matching Dict{PVar, Any}
+type Matching
+    d::Dict{PVar,Any}
+    Matching() = new(Dict{PVar,Any}())
+end
+
+function ref(m::Matching, X::PVar)
+    return d[m]
+end
+
+# Add the constraint X==y in m, 
+# and return the unification of X and y given m
+function meet(m::Matching, X::PVar,y)
+    x = get(m.d, X, X)          # default: implicit binding X := X
+    if isa(y,PVar)  # if y is a variable: look it up. multiple times?
+        y = get(m.d, y, y)
+    elseif isa(y,TVar) && has(m.d, y.X)
+        y = restrict(valuetype(y), m[y])
+    end
+    if is(x,X)
+        if isa(y, TypePattern)
+            z = restrict(valtype(y), X)
+        else
+            z = y
+        end
+    else
+        z = unify(m, x,y)      # unify with previous binding
+    end
+    if is(z,X); return X; end # don't bother to bind X := X
+    return m.d[X] = z           # return new binding
+end
+
+
+# == unify ====================================================================
 
 # (@retnaught x) returns nonevalue from the function if x is nonevalue;
 # evaluates to x otherwise.
@@ -122,33 +153,12 @@ function unify(m::Matching, x,y)
     isa(y,Pattern) ? unify(m, y,x) : (isequal(x,y) ? x : nonevalue)
 end
 
-unify(m::Matching, X::PVar,     y)           = ubind(m, X,y)
-unify(m::Matching, X::Universal,y::TVar) = ubind(m, y.X,y)
-unify(m::Matching, X::Universal,y)           = y
+unify(m::Matching, X::PVar,     y)       = meet(m, X,y)
+unify(m::Matching, X::Universal,y::TVar) = meet(m, y.X,y)
+unify(m::Matching, X::Universal,y)       = y
 
 # Note: calls unify(::Matching, ::Union(PVar,Universal),y::Typed)
 unify{T}(m::Matching, X::Typed{T},y) = unify(m, get_p(X), restrict(T, y))
-
-# bind X => y in b, and return the unification of X and y given b
-function ubind(m::Matching, X::PVar,y)
-    x = get(m, X, X)          # default: implicit binding X := X
-    if isa(y,PVar)  # if y is a variable: look it up. multiple times?
-        y = get(m, y, y)
-    elseif isa(y,TVar) && has(m, y.X)
-        y = restrict(valuetype(y), m[y])
-    end
-    if is(x,X)
-        if isa(y, TypePattern)
-            z = restrict(valtype(y), X)
-        else
-            z = y
-        end
-    else
-        z = unify(m, x,y)      # unify with previous binding
-    end
-    if is(z,X); return X; end # don't bother to bind X := X
-    return m[X] = z           # return new binding
-end
 
 
 # -- Vector unification -------------------------------------------------------
