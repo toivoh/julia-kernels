@@ -2,6 +2,9 @@
 load("utils/req.jl")
 req("utils/utils.jl")
 
+
+# == pattern types ============================================================
+
 abstract Pattern # Patterns that can match a different type than their own
 abstract Typed{T} <: Pattern # Patterns that match only values of type T
 
@@ -39,8 +42,6 @@ type TVar{T} <: Typed{T}
     TVar(X::PVar) = is(T, None) ? nonevalue : (is(T,Any) ? X : new(X))
 end
 
-
-
 pvar(name::Symbol) = PVar(name)
 pvar(T, name::Symbol) = TVar{T}(PVar(name))
 pvar(T, X::PVar) = TVar{T}(X)
@@ -63,6 +64,8 @@ end
 get_p( ::TypePattern) = anyvalue
 get_p(p::TVar) = p.X
 
+
+# -- restrict --------------------------------------------------------- 
 
 # restrict(T, x): 
 # Return the restriction of the pattern x to value type T
@@ -123,17 +126,17 @@ unify(m::Matching, X::PVar,     y)           = ubind(m, X,y)
 unify(m::Matching, X::Universal,y::TVar) = ubind(m, y.X,y)
 unify(m::Matching, X::Universal,y)           = y
 
-# Note: calls 
-# unify(::Matching, X::PVar,y::Typed);
-# unify(::Matching, X::Universal,y::Typed);
+# Note: calls unify(::Matching, ::Union(PVar,Universal),y::Typed)
 unify{T}(m::Matching, X::Typed{T},y) = unify(m, get_p(X), restrict(T, y))
 
-
 # bind X => y in b, and return the unification of X and y given b
-#ubind{T}(m::Matching, X::PVar,y::Unpattern) = nonevalue
-#ubind{T}(m::Matching, X::PVar,y::TypePattern{T}) = ubind(m, X,restrict(T,X))
 function ubind(m::Matching, X::PVar,y)
     x = get(m, X, X)          # default: implicit binding X := X
+    if isa(y,PVar)  # if y is a variable: look it up. multiple times?
+        y = get(m, y, y)
+    elseif isa(y,TVar) && has(m, y.X)
+        y = restrict(valuetype(y), m[y])
+    end
     if is(x,X)
         if isa(y, TypePattern)
             z = restrict(valtype(y), X)
@@ -148,7 +151,19 @@ function ubind(m::Matching, X::PVar,y)
 end
 
 
+# -- Vector unification -------------------------------------------------------
 
+function unify(m::Matching, xs::Vector, ys::Vector)
+    nx, ny = map(length, (xs, ys))
+    if nx != ny;  return  nonevalue;  end
 
+    T = tintersect(eltype(xs),eltype(ys))
+    if is(T,None);  return nonevalue;  end
 
+    zs = Array(T,nx)
+    for k=1:nx
+        zs[k] = (@retnaught unify(m, xs[k],ys[k]))
+    end
+    zs
+end
 
