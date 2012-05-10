@@ -33,12 +33,18 @@ end
 # A typed pattern variable
 type TVar{T} <: Typed{T}
     X::PVar
+
+    # Makes sure to return
+    #  * nonevalue instead of ::TVar{None}
+    #  * X::PVar itself instead of ::TVar{Any}
+    TVar(X::PVar) = is(T, None) ? nonevalue : (is(T,Any) ? X : new(X))
 end
 
 
 
 pvar(name::Symbol) = PVar(name)
 pvar(T, name::Symbol) = TVar{T}(PVar(name))
+pvar(T, X::PVar) = TVar{T}(X)
 pvar(names::(Symbol...)) = map(pvar, names)
 
 show(io::IO, p::PVar) = print(io, "pvar(:$(p.name))")
