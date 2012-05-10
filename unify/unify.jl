@@ -87,21 +87,25 @@ restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Patterns
 
 # == Subs =====================================================================
 
+# A substitution from pattern variables to patterns/values
 type Subs
     d::Dict{PVar,Any}
     overdet::Bool
-    Subs() = new(Dict{PVar,Any}())
+
+    Subs() = new(Dict{PVar,Any}(), false)
 end
 
-type Unfinished; end
-const unfinished = Unfinished()  # used to detect cyclic dependencies
+type Unfinished; end             
+# Value of an unfinished computation. Used to detect cyclic dependencies.
+const unfinished = Unfinished()
 
 # circular dependency ==> no finite pattern matches
 expand(s::Subs, X::PVar,::Unfinished) = (s.overdet = true; s.d[X] = nonevalue)
+
 expand(s::Subs,  ::PVar,::TypePattern) = error("TypePattern:s should "*
                                                    "never be stored in s.d")
 
-function expand(s::Subs, x)
+function expand(s::Subs, X:PVar,x)
     @assert !is(x,X)    # should never store X=X
     if isa(x, TVar) && (is(x.X,X)); return x; end
 
@@ -111,6 +115,8 @@ function expand(s::Subs, x)
 end
 
 function ref(s::Subs, X::PVar)
+    if s.overdet; return nonevalue; end
+
     if has(s.d, X)
         x = s.d[X]
         return expand(m, X,x)
