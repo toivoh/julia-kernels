@@ -3,7 +3,6 @@ load("utils/req.jl")
 req("utils/utils.jl")
 
 abstract Pattern # Patterns that can match a different type than their own
-abstract Untyped  <: Pattern # Patterns without a specified value type
 abstract Typed{T} <: Pattern # Patterns that match only values of type T
 
 # need these:?
@@ -26,7 +25,7 @@ show(io::IO, ::Unpattern) = print(io, "nonevalue")
 show{T}(io::IO, p::TypePattern{T}) = print(io, "match($T)")
 
 # pattern variable, compares by identity
-type PVar <: Untyped
+type PVar <: Pattern
     name::Symbol
 end
 
