@@ -92,19 +92,42 @@ type Matching
     Matching() = new(Dict{PVar,Any}())
 end
 
+type Unfinished; end
+const unfinished = Unfinished();
+
+expand(m::Matching,  ::PVar,::TypePattern) = error("TypePattern:s should "*
+                                                   "never be stored in m.d")
+# circular dependency ==> no finite pattern matches
+expand(m::Matching, X::PVar,::Unfinished) = (m.d[X] = nonevalue)
+
+function expand(m::Matching, x)
+    @assert !is(x,X)    # should never store X=X
+    if isa(x, TVar) && (is(x.X,X)); return x; end
+
+    m.d[X] = unfinished
+    x = m[x]             # look up x
+    return m.d[X] = x    # store and return
+end
+
 function ref(m::Matching, X::PVar)
-    return d[m]
+    if has(m.d, X)
+        x = m.d[X]
+        return expand(m, X,x)
+    else
+        return X
+    end
 end
 
 # Add the constraint X==y in m, 
 # and return the unification of X and y given m
 function meet(m::Matching, X::PVar,y)
-    x = get(m.d, X, X)          # default: implicit binding X := X
-    if isa(y,PVar)  # if y is a variable: look it up. multiple times?
-        y = get(m.d, y, y)
-    elseif isa(y,TVar) && has(m.d, y.X)
-        y = restrict(valuetype(y), m[y])
-    end
+#    x = get(m.d, X, X)          # default: implicit binding X := X
+#     if isa(y,PVar)  # if y is a variable: look it up. multiple times?
+#         y = get(m.d, y, y)
+#     elseif isa(y,TVar) && has(m.d, y.X)
+#         y = restrict(valuetype(y), m[y])
+#     end
+    x = m[X]
     if is(x,X)
         if isa(y, TypePattern)
             z = restrict(valtype(y), X)
