@@ -4,102 +4,126 @@ req("utils/utils.jl")
 
 # Patterns that can match a different type than their own
 abstract Pattern
+# Patterns without a specified value type
+abstract Untyped <: Pattern
 
 # A pattern that only matches objects of type <: T
-type Restrict{T} <: Pattern
-    x
+type Typed{T} <: Pattern
+    p::Untyped
 end
 
-type Anything <: Pattern; end
-const anything = Anything()             # The pattern that matches anything
-const naught = Restrict{None}(anything) # The pattern that matches nothing
+type Universal <: Untyped; end
+const anyvalue  = Universal()            # The pattern that matches anything
+const nonevalue = Typed{None}(anyvalue)  # The pattern that matches nothing
 
-type PVar <: Pattern  # pattern variable, compares by identity
+# todo: Can I make the inner constructor always return nonevalue
+# when T = None too?
+# consider: should Typed have subtypes for Universal vs PVar content?
+Typed{T}(::Type{T}, p::Untyped) = is(T,None) ? nonevalue : Typed{T}(p)
+
+valtype{T}(::Typed{T}) = T
+
+
+show(io::IO, ::Universal) = print(io, "anyvalue")
+show(io::IO, p::Typed{None}) = print(io, "nonevalue")
+show{T}(io::IO, p::Typed{T}) = print(io, "Typed($T, $(p.p))")
+
+# pattern variable, compares by identity
+type PVar <: Untyped
     name::Symbol
 end
 
 pvar(name::Symbol) = PVar(name)
 pvar(names::(Symbol...)) = map(pvar, names)
 
+# usage: @pvar X Y   ==> X, Y = pvar((:X, :Y))
+macro pvar(args...)
+    # todo: allow syntax @pvar X::Int ?
+    quoted_args = {quoted_expr(a) for a in args}
+    quote
+       ($quoted_tuple(args)) = pvar($quoted_tuple(quoted_args))
+    end
+end
 
-#pattype{T}(::Pattern{T}) = T
-pattype{T}(::Restrict{T}) = T
-pattype(::Pattern) = Any
-pattype{T}(::T) = T
 
-isnaught(x) = is(pattype(x), None)
+# Return a pattern that matches any value of type T
+match(T) = Typed(T, anyvalue)
 
-# restrict(T, x): The restriction of the pattern x to type T
-restrict{T}(::Type{None}, ::T)           = naught  
-restrict{T}(::Type{None}, ::Restrict{T}) = naught  # todo: do I really
-restrict{T<:Pattern}(::Type{None}, ::T)  = naught  # need these two?
+# restrict(T, x): 
+# Return the restriction of the pattern x to value type T
+restrict(::Type{Any}, x) = x
+restrict(::Type{Any}, x::Typed) = x
+restrict(::Type{Any}, x::Untyped) = x
 
-restrict{T}(S, R::Restrict{T}) = restrict(tintersect(S,T), R.x)
-restrict(T, X::Pattern) = Restrict{T}(X)
-restrict(T, x) = isa(x, T) ? x : naught
+restrict{T}(R, t::Typed{T}) = restrict(tintersect(R,T), t.p)
+restrict(T, p::Untyped) = Typed(T, p)
+restrict(T, x) = isa(x, T) ? x : nonevalue  # for non-Pattern:s
 
-show(io::IO, R::Restrict{None}) = print(io, "naught")
-show{T}(io::IO, R::Restrict{T}) = print(io, "restrict($T, $(R.x))")
+
 
 
 # -- unify --------------------------------------------------------------------
 
-# Binding of pattern variables to values
-typealias Binding Dict{PVar, Any}
+# Matching of pattern variables to values
+typealias Matching Dict{PVar, Any}
 
-# (@retnaught x) returns naught from the function if x is naught;
+# (@retnaught x) returns nonevalue from the function if x is nonevalue;
 # evaluates to x otherwise.
 macro retnaught(ex)
     @gensym p
     quote
         ($p) = ($ex)
-        if is(($p), naught);  return naught;  end
+        if is(($p), nonevalue);  return nonevalue;  end
         ($p)
     end
 end
 
-# unify(b::Binding, x, y)
+# unify(m::Matching, x, y)
 # -----------------------
 # Find the bindings needed to make the patterns x==y,
 # (along with the ones already present in b), 
 # and store them in b.
 # Return the unification z = (x given b) = (y given b),
-# or naught if the match is not possible.
+# or nonevalue if the match is not possible.
 
-# unify x and y into z, return (z, binding) if it's possible; naught otherwise.
-unify(x,y) = (b = Binding(); z = unify(b, x,y); is(z, naught) ? z : (z, b))
+# unify x and y into z
+# return (z, matching) if z != nonevalue; nonevalue otherwise.
+unify(x,y) = (m = Matching(); z = unify(m, x,y); is(z, nonevalue) ? z : (z, m))
 
 
 # Match if equal. This is the only unification that applies to atoms.
-unify(b::Binding, x,y) = isequal(x,y) ? x : naught
+function unify(m::Matching, x::Pattern,y) 
+    error("Unimplemented: unify(::Matching, ::$(typeof(x)), ::$(typeof(y)))")
+end
+function unify(m::Matching, x,y) 
+    isa(y,Pattern) ? unify(m, y,x) : (isequal(x,y) ? x : nonevalue)
+end
 
-unify(b::Binding, X::PVar,Y::PVar)  = ubind(b, X,Y)
-unify(b::Binding, X::PVar,y) = ubind(b, X,y)
-unify(b::Binding, x,Y::PVar) = ubind(b, Y,x)
-unify(b::Binding, R::Restrict,X::PVar) = ubind(b, X,R)
-unify(b::Binding, X::PVar,R::Restrict) = ubind(b, X,R)
+unify(m::Matching, ::Universal,y) = y
+unify(m::Matching, X::PVar,y)  = ubind(m, X,y)
+
+# Note: calls unify(::Matching, X::Untyped,y::Typed);
+# unify(::Matching, X::Untyped,y) is defined for all X!
+unify{T}(m::Matching, X::Typed{T},y) = unify(m, X.p, restrict(T, y))
 
 # bind X => y in b, and return the unification of X and y given b
-#ubind(b::Binding, X::PVar,::Anything) = get(b,X,anything)
-function ubind(b::Binding, X::PVar,y)
-#    if (is(y,X)) || is(y,anything); return get(b,X,y); end
-    if has(b, X) 
+function ubind(m::Matching, X::PVar,y)
+    if has(m, X) 
         # unify the present binding of X with the new one
-        x = b[X]
-        z = unify(b, x,y)
-        if is(z,x) || is(z,anything); return z; end
-        return b[X] = z
+        x = m[X]
+        z = unify(m, x,y)
+        if is(z,X); return X; end
+        return m[X] = z
     else
-        if is(y,anything); return anything; end
-        return b[X] = y
+        if is(y,anyvalue); return X; end
+        if isa(y,Typed) && is(y.p, anyvalue)
+            return m[X] = restrict(valtype(y), X)
+        end
+        return m[X] = y
     end
 end
 
-function unify{T}(b::Binding, P::Restrict,R::Restrict{T})
-    unify(b, restrict(T, P), R.x)
-end
-unify{T}(b::Binding, x,R::Restrict{T}) = unify(b, restrict(T,x),R.x)
-unify{T}(b::Binding, R::Restrict{T},x) = unify(b, restrict(T,x),R.x)
+
 
 
 

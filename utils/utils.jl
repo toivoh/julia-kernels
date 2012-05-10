@@ -1,9 +1,9 @@
 
 macro show(ex)
-    :(println(($string(ex)), " = ", $ex) )
+    :(println(($string(ex)), "\t= ", $ex) )
 end
 macro showln(ex)
-    :(println(($string(ex)), " =\n", $ex) )
+    :(println(($string(ex)), "\n\t=", $ex) )
 end
 
 
