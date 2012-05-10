@@ -2,6 +2,9 @@
 macro show(ex)
     :(println(($string(ex)), " = ", $ex) )
 end
+macro showln(ex)
+    :(println(($string(ex)), " =\n", $ex) )
+end
 
 
 const doublecolon = @eval (:(::Int)).head
