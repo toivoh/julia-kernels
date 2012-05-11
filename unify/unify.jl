@@ -73,3 +73,39 @@ dintersect{T}(::Domain{T}, x) = isa(x, T) ? x : nonematch  # for non-Patterns
 
 restrict{T}(::Type{T}, x) = dintersect(Domain(T), x)
 
+
+# -- Subs ---------------------------------------------------------------------
+
+# A substitution from pattern variables to patterns/values
+type Subs
+    d::Dict{PVar,Any}
+    overdet::Bool
+
+    Subs() = new(Dict{PVar,Any}(), false)
+end
+
+type Unfinished; end             
+# Value of an unfinished computation. Used to detect cyclic dependencies.
+const unfinished = Unfinished()
+
+
+
+# -- unify --------------------------------------------------------------------
+
+
+# catch unimplemented signatures to that we don't get an infintite loop
+# from unify(s, x,y) = unify(s, y,x)
+function unify(s::Subs, x::Pattern,y) 
+    error("Unimplemented: unify(::Subs, ::$(typeof(x)), ::$(typeof(y)))")
+end
+# Match if equal. This is the only unification that applies to atoms.
+function unify(s::Subs, x,y) 
+    isa(y,Pattern) ? unify(m, y,x) : (isequal(x,y) ? x : nonevalue)
+end
+
+unify(s::Subs, X::PVar) = addbinding(s, X.id, X)
+unify(s::Subs, x) = x
+
+unify(s::Subs, X::PVar,y) = addbinding(s, X.id, dintersect(X.dom,y))
+unify(s::Subs, X::Domain,y) = unify(s, dintersect(X,y))
+
