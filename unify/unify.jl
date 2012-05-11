@@ -40,11 +40,13 @@ type PVar{T} <: Pattern{T}
     PVar(id::VarId) = is(T,None) ? nonematch : new(match(T), id)
 end
 
+PVar{T}(::Domain{T}, id::VarId) = PVar{T}(id)
+
 typealias AnyVar PVar{Any}
 
 pvar(name::Symbol) = PVar{Any}(VarId(name))
 pvar(T, name::Symbol) = PVar{T}(VarId(name))
-pvar{T}(::Domain{T}, id::VarId) = PVar{T}(id)
+pvar(D::Domain, id::VarId) = PVar(T,id)
 pvar(T, id::VarId) = PVar{T}(id)
 pvar(::Type{None}, ::VarId) = nonematch
 pvar(names::(Symbol...)) = map(pvar, names)
@@ -62,9 +64,12 @@ macro pvar(args...)
 end
 
 
-# -- restrict -----------------------------------------------------------------
+# -- dintersect --------------------------------------------------------------
 
-restrict{T}(::Domain{T}, x) = restrict(T, x)
-restrict{T}(R::Type, ::Domain{T}) = Domain(tintersect(R,T))
-restrict(R::Type, X::PVar) = pvar(restrict(R,X.dom), X.id)
-restrict(R::Type, x) = isa(x, R) ? x : nonematch  # for non-Patterns
+# intersect a domain with a pattern
+dintersect{R,T}(::Domain{R}, ::Domain{T}) = Domain(tintersect(R,T))
+dintersect(D::Domain, X::PVar) = PVar(dintersect(D, X.dom), X.id)
+dintersect{T}(::Domain{T}, x) = isa(x, T) ? x : nonematch  # for non-Patterns
+
+restrict{T}(::Type{T}, x) = dintersect(Domain(T), x)
+
