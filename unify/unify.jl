@@ -95,6 +95,13 @@ macro retnone(ex)
     end
 end
 
+promote_rule{S,T}(::Type{PVar{S}}, ::Type{PVar{T}}) = PVar
+promote_rule{S<:Pattern,T<:Pattern}(::Type{S}, ::Type{T}) = Pattern
+# consider: A these two rules too strong?
+promote_rule{T<:Pattern}(::Type{T}, ::Any) = Any
+promote_rule(::Type{Any}, ::Any) = Any
+
+
 # -- Subs ---------------------------------------------------------------------
 
 # A substitution from pattern variables to patterns/values
