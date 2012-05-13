@@ -4,7 +4,7 @@ load("utils/req.jl")
 req("unify/test/symshow.jl")
 
 let
-    @pvar X Y Z
+    @pvar X, Y, Z
     
     @symshowln unify(X, {1,2})
     @symshowln unify({X,2}, {1,2})
@@ -21,10 +21,7 @@ let
     @symshowln unify({1,Y,X}, {X,Z,Y})
     @symshowln unify(X, {1,X})
 
-    Xi = pvar(Int, :Xi)
-    Xa = pvar(Array, :Xa)
-    Xv = pvar(Vector, :Xv)
-    Xm = pvar(Matrix, :Xm)
+    @pvar Xi::Int, Xa::Array, Xv::Vector, Xm::Matrix
     println()
     @symshow unify(Xi, {1,2})
     @symshowln unify(Xa, {1,2})
@@ -32,7 +29,7 @@ let
     @symshow unify(Xm, {1,2})
 
     println()
-    Xai = pvar(Array{Int}, :Xai)
+    @pvar Xai::Array{Int}
     # todo: Should this work? And convert the cell Array to an Int Array
     @symshow   unify(Xai, {1,2})
     @symshowln unify(Xai, [1,2])

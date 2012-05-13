@@ -64,7 +64,6 @@ PVar{T}(::Type{T},   name::Symbol) = PVar{T}(name)
 
 pvar(T, name::Symbol) = PVar(T, name)
 pvar(name) = pvar(Any, name)
-pvar(defs::Tuple) = map(pvar, defs)
 
 #match(T) = PVar(T, gensym("match_$T"))
 match(T) = PVar(T, gensym())
@@ -74,10 +73,28 @@ show{T}(io::IO, V::PVar{T}) = print(io, "pvar($T,:$(V.name))")
 
 # usage: @pvar X Y   ==> X, Y = pvar((:X, :Y))
 macro pvar(args...)
-    # todo: allow syntax @pvar X::Int ?
-    quoted_args = {quoted_expr(a) for a in args}
+    code_pvar(args...)
+end
+function code_pvar(args...)
+    if (length(args)==1) && (is_expr(args[1], :tuple))
+        return code_pvar(args[1].args...)
+    end
+
+    pvarcalls = {}
+    argnames = {}
+    for arg in args
+        argname = arg
+        if is_expr(arg, doublecolon)
+            @expect length(arg.args) == 2
+            argname, argtype = arg.args[1], arg.args[2]
+            push(pvarcalls, :(pvar(($argtype), $quoted_expr(argname))))
+        else
+            push(pvarcalls, :(pvar($quoted_expr(arg))))
+        end 
+        push(argnames, argname::Symbol)
+    end
     quote
-        ($quoted_tuple(args)) = pvar($quoted_tuple(quoted_args))
+        ($quoted_tuple(argnames)) = ($quoted_tuple(pvarcalls))
         nothing
     end
 end
@@ -168,6 +185,7 @@ ref(s::Subs, x) = x  # return atoms unchanged
 # Add the constraint V == X to s, and return the new binding Y for V
 
 function unitesubs(s::Subs, V::PVar,X)
+    if is(X,V);  return X;  end
     if has(s.dict, V)
         v = s[V]
         Y = unite(s, v,X)     # unite the new value with the old
@@ -204,6 +222,7 @@ end
 
 unite(s::Subs, ::NonePattern,X) = nonematch
 function unite(s::Subs, P::PVar,X::PVar)
+    if is(X,P); return X; end
     if P.dom >= X.dom; return unitesubs(s, P,X)
     elseif X.dom >= P.dom; return unitesubs(s, X,P)
     else
