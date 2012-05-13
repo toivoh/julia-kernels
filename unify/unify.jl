@@ -20,6 +20,10 @@ dintersect(::Domain{Any}, D::Domain) = D
 dintersect(D::Domain, ::Domain{Any}) = D
 dintersect{S,T}(D::Domain{S}, E::Domain{T}) = domain(tintersect(S,T))
 
+isuniversal(::Domain{Any}) = true
+isuniversal(::Domain)      = false
+code_contains{T}(D::Domain{T}, ex) = :(isa(($ex),($quoted_expr(T))))
+
 
 # -- Pattern ------------------------------------------------------------------
 
@@ -238,6 +242,74 @@ function unite(s::Subs, P,X)
 end
 
 
+# -- code_pmatch --------------------------------------------------------------
+
+type PVarEntry
+    name::Symbol
+    isassigned::Bool
+    PVarEntry(name::Symbol) = new(name, false)
+end
+type PMContext
+    vars::Dict{PVar, PVarEntry}
+    code::Vector
+    PMContext() = new(Dict{PVar, PVarEntry}(), {})
+end
+
+emit(c::PMContext, ex) = (push(c.code,ex); nothing)
+
+
+code_pmatch(p,xname::Symbol) = (c=PMContext(); code_pmatch(c, p,xname); c)
+
+
+function code_iffalse_retfalse(pred)
+    :(if !($pred)
+        return false
+    end)
+end
+
+code_pmatch(c::PMContext, ::NonePattern,::Symbol) = error("code_pmatch: "*
+                                                  "pattern never matches")
+function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
+    if !has(c.vars, p)
+        c.vars[p] = PVarEntry(gensym(string(p.name)))
+    end
+    entry = c.vars[p]
+    if entry.isassigned
+        emit(c, code_iffalse_retfalse(:( isequal(($entry.name),($xname))) ))
+    else
+        if !isuniversal(p.dom)
+            emit(c, code_iffalse_retfalse(code_contains(p.dom,xname)))
+        end
+        emit(c, :(
+            ($entry.name) = ($xname)
+        ))
+        entry.isassigned = true
+    end
+end
+function code_pmatch(c::PMContext, p,xname::Symbol)
+    @assert isatom(p)
+    emit(c, code_iffalse_retfalse(:( isequal(($quoted_expr(p)),($xname)) )))
+end
+function code_pmatch_list(T, c::PMContext, ps,xname::Symbol)
+    np = length(ps)
+    emit(c, code_iffalse_retfalse( :(
+        (isa(($xname),($quoted_expr(T))) && length($xname) == ($np))
+    )))
+    for k=1:np
+        xname_k = gensym()
+        emit(c, :(($xname_k) = ($xname)[$k]))
+        code_pmatch(c, ps[k], xname_k)
+    end
+end
+function code_pmatch(c::PMContext, ps::Tuple,xname::Symbol)
+    code_pmatch_list(Tuple, c, ps,xname)
+end
+function code_pmatch(c::PMContext, ps::Vector,xname::Symbol)
+    code_pmatch_list(Vector, c, ps,xname)
+end
+
+
+
 # -- tuple unification --------------------------------------------------------
 
 isatom(::Tuple) = false
@@ -263,3 +335,5 @@ function unite(s::Subs, ps::Tuple,xs::Tuple)
     @retnone ys=unite_list(Any, s, ps,xs)
     tuple(ys)
 end
+
+

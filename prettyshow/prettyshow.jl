@@ -199,6 +199,8 @@ function pshow_quoted_expr(io::PrettyIO, ex::Expr)
         pprint(io, "quote(", {ex}, ")")
     end
 end
+pshow_quoted_expr(io::PrettyIO, ex) =pprint(io, ":($ex)")
+
 
 ## show an expr
 function pshow(io::PrettyIO, ex::Expr)
