@@ -157,8 +157,8 @@ end
 
 ## show the body of a :block
 pshow_mainbody(io::PrettyIO, ex) = pshow(io, ex)
-function pshow_mainbody(io::PrettyIO, ex::Expr)
-    if ex.head == :block
+function pshow_mainbody(io::PrettyIO, ex)
+    if is_expr(ex, :block)
         args = ex.args
         for (arg, k) in enumerate(args)
             if !is_expr(arg, :line)
@@ -173,11 +173,11 @@ function pshow_mainbody(io::PrettyIO, ex::Expr)
 end
 
 ## show arguments of a block, and then body
-pshow_body(io::PrettyIO, body::Expr) = pshow_body(io, {}, body)
-function pshow_body(io::PrettyIO, arg, body::Expr)
+pshow_body(io::PrettyIO, body) = pshow_body(io, {}, body)
+function pshow_body(io::PrettyIO, arg, body)
     pprint(io, {arg, io->pshow_mainbody(io, body) })
 end
-function pshow_body(io::PrettyIO, args::Vector, body::Expr)
+function pshow_body(io::PrettyIO, args::Vector, body)
     pprint(io, {
             io->pshow_comma_list(io, args, "", ""), 
             io->pshow_mainbody(io, body)
