@@ -76,6 +76,41 @@ function code_pmatch(c::PMContext, ps::Vector,xname::Symbol)
 end
 
 
+# -- recode_pattern -----------------------------------------------------------
+
+type RPContext
+    vars::Dict{Symbol,PVar}
+    unmatchable::Bool
+    RPContext() = new(Dict{Symbol,PVar}(), false)
+end
+
+
+function getvar(c::RPContext, name::Symbol, T)
+    if has(c.vars, name)
+        var = c.vars[name]
+        @expect isequal(patype(var), T)
+        return var
+    else
+        var = PVar(T,name)
+        return c.vars[name] = var
+    end
+end
+
+function recode_pattern(c::RPContext, ex::Expr)
+    head, args = ex.head, ex.args
+    nargs = length(args)
+    if head == doublecolon
+        @expect nargs==2
+        return getvar(c, args[1], args[2])
+    else
+        return expr(head, map(ex->recode_pattern(c,ex), args))
+    end
+end
+recode_pattern(c::RPContext, sym::Symbol) = getvar(c, sym)
+recode_pattern(c::RPContext, ex) = ex # other terminals
+
+
+
 # -- @ifmatch -----------------------------------------------------------------
 
 macro ifmatch(ex)

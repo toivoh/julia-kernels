@@ -11,6 +11,8 @@ domain{T}(::Type{T}) = Domain{T}()
 
 const nonedomain = domain(None)
 
+domtype{T}(::Domain{T}) = T
+
 <={S,T}(D::Domain{S}, E::Domain{T}) = (S<:T)
 >={S,T}(D::Domain{S}, E::Domain{T}) = (T<:S)
 
@@ -33,6 +35,8 @@ abstract Pattern{T}
 
 type NonePattern <: Pattern{None}; end
 const nonematch = NonePattern()
+
+patype{T}(::Pattern{T}) = T
 
 show(io::IO, ::NonePattern) = print(io, "nonematch")
 
