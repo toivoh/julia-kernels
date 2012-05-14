@@ -136,10 +136,10 @@ end
 
 # -- @ifmatch -----------------------------------------------------------------
 
-macro ifmatch(ex)
+macro ifmatch_let(ex)
     code_ifmatch(ex)
 end
-function code_ifmatch(ex)
+function code_ifmatch_let(ex)
     @expect is_expr(ex, :let)
     body = ex.args[1]
     #matches = ex.args[2:end]
@@ -147,7 +147,12 @@ function code_ifmatch(ex)
     match = ex.args[2]
 
     @expect is_expr(match, :(=), 2)
+
     pattern, valex = match.args[1], match.args[2]
+    code_ifmatch_let(pattern, valex, body)
+end
+
+function code_ifmatch_let(pattern, valex, body)
     valname = gensym("value")
     
     rpc = RPContext()
@@ -162,14 +167,83 @@ function code_ifmatch(ex)
     varnames = {kv[2].name for kv in pmc.vars}
     pmatch
 
-    quote
+    :(
         let ($valname)=($valex)
             local ($varnames)
             if let
                 ($pmc.code...)
             end
                 ($body)
+                true
+            else
+                false
             end
         end
+    )
+end
+
+
+# -- @pattern -----------------------------------------------------------------
+
+type PatternMethod
+    signature
+    body
+    
+    dispatch_code
+
+    PatternMethod(signature, body) = new(signature, body, nothing)
+end
+
+function code_pmethod_dispatch(m::PatternMethod, argsname)
+    @gensym result
+    :(
+        local (${result});
+        if ($code_ifmatch_let(m.signature, argsname, :( ($result)=($m.body) )))
+#        if @ifmatch let ($m.signature)=($argsname)
+#             ($result)=($m.body)
+#         end
+            return ($result)
+        end 
+    )
+end
+
+type PatternMethodTable
+    methods::Vector{PatternMethod}
+    PatternMethodTable() = new(PatternMethod[])
+end
+
+function add(mt::PatternMethodTable, signature, body)
+    push(mt.methods, PatternMethod(signature, body))
+end
+
+function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
+    argsname = :args
+    code = {}
+    for m in mt.methods
+        if is(m.dispatch_code, nothing)
+            m.dispatch_code = code_pmethod_dispatch(m, argsname)
+        end
+        push(code, m.dispatch_code)
     end
+    
+    push(code, :(
+        error("no dispatch found for", ($fname), typeof($argsname))
+    ))
+
+            
+    quote
+        function ($fname)(args...)
+            println($string(fname))
+            ($code...)
+        end
+    end
+#    expr(:function, :(($fname)(args...)), expr(:block, code))
+end
+
+
+
+macro pattern(ex)
+    code_pattern_function(ex)
+end
+function code_pattern_function(ex)
 end

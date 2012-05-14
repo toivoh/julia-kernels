@@ -45,7 +45,9 @@ c = RPContext()
 
 
 for k=1:4
-    @ifmatch let (X,value(k))=(1,2)
+    if !@ifmatch let (X,value(k))=(1,2)
         println("X=$X, k=$k")
+    end
+        println("k=",k)
     end
 end
