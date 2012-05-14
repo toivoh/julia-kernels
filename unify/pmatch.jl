@@ -60,14 +60,16 @@ type PVarEntry
 end
 type PMContext
     vars::Dict{PVar, PVarEntry}
+    ret_nomatch
     code::Vector
 
-    PMContext() = new(Dict{PVar, PVarEntry}(), {})
+    PMContext(ret_nomatch) = new(Dict{PVar, PVarEntry}(), ret_nomatch, {})
+    PMContext() = PMContext(:false)
 end
 
-PMContext(rpc::RPContext) = PMContext(rpc.vars)
-function PMContext(vars::Dict)
-    c = PMContext()
+PMContext(rpc::RPContext, args...) = PMContext(rpc.vars, args...)
+function PMContext(vars::Dict, args...)
+    c = PMContext(args...)
     for (name::Symbol, p::PVar) in vars
         c.vars[p] = PVarEntry(name)
     end
@@ -86,9 +88,9 @@ function get_entry(c::PMContext, p::PVar)
 end
 
 
-function code_iffalse_retfalse(pred)
+function code_iffalse_retfalse(c::PMContext, pred)
     :(if !($pred)
-        return false
+        return ($c.ret_nomatch)
     end)
 end
 
@@ -97,10 +99,10 @@ code_pmatch(c::PMContext, ::NonePattern,::Symbol) = error("code_pmatch: "*
 function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
     entry = get_entry(c, p)
     if entry.isassigned
-        emit(c, code_iffalse_retfalse(:( isequal(($entry.name),($xname))) ))
+        emit(c, code_iffalse_retfalse(c, :( isequal(($entry.name),($xname))) ))
     else
         if !isuniversal(p.dom)
-            emit(c, code_iffalse_retfalse(code_contains(p.dom,xname)))
+            emit(c, code_iffalse_retfalse(c, code_contains(p.dom,xname)))
         end
         emit(c, :(
             ($entry.name) = ($xname)
@@ -109,15 +111,15 @@ function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
     end
 end
 function code_pmatch(c::PMContext, p::RuntimeValue,xname::Symbol)
-    emit(c, code_iffalse_retfalse(:( isequal(($p.name),($xname)) )))
+    emit(c, code_iffalse_retfalse(c, :( isequal(($p.name),($xname)) )))
 end
 function code_pmatch(c::PMContext, p,xname::Symbol)
     @assert isatom(p)
-    emit(c, code_iffalse_retfalse(:( isequal(($quoted_expr(p)),($xname)) )))
+    emit(c, code_iffalse_retfalse(c, :( isequal(($quoted_expr(p)),($xname)) )))
 end
 function code_pmatch_list(T, c::PMContext, ps,xname::Symbol)
     np = length(ps)
-    emit(c, code_iffalse_retfalse( :(
+    emit(c, code_iffalse_retfalse(c,  :(
         (isa(($xname),($quoted_expr(T))) && length($xname) == ($np))
     )))
     for k=1:np
@@ -165,7 +167,7 @@ function code_ifmatch_let(pattern, valex, body)
 #    foreach(pprintln, pmc.code)
 
     varnames = {kv[2].name for kv in pmc.vars}
-    pmatch
+#    pmatch
 
     :(
         let ($valname)=($valex)
@@ -186,20 +188,38 @@ end
 # -- @pattern -----------------------------------------------------------------
 
 type PatternMethod
-    signature
+    arguments::Dict{Symbol,PVar}
+    pattern
     body
-    
-    dispatch_code
+   
+    PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
+end
 
-    PatternMethod(signature, body) = new(signature, body, nothing)
+function patmethod(pattern, body)
+    rpc = RPContext()
+    pattern = recode_pattern(rpc, pattern)
+    pattern = eval(pattern)
+    PatternMethod(rpc.vars, pattern, body)
+end
+
+function code_pmethod_closure(m::PatternMethod)
+    argsname = gensym("args")
+
+    pmc=PMContext(m.arguments, :(false,nothing))
+    code_pmatch(pmc, m.pattern,argsname)
+    push(pmc.code, :(true, ($m.body)))
+
+    :( (($argsname)...)->(begin
+        ($pmc.code...)        
+    end))
 end
 
 function code_pmethod_dispatch(m::PatternMethod, argsname)
     @gensym result
     :(
         local (${result});
-        if ($code_ifmatch_let(m.signature, argsname, :( ($result)=($m.body) )))
-#        if @ifmatch let ($m.signature)=($argsname)
+        if ($code_ifmatch_let(m.pattern, argsname, :( ($result)=($m.body) )))
+#        if @ifmatch let ($m.pattern)=($argsname)
 #             ($result)=($m.body)
 #         end
             return ($result)
@@ -207,43 +227,43 @@ function code_pmethod_dispatch(m::PatternMethod, argsname)
     )
 end
 
-type PatternMethodTable
-    methods::Vector{PatternMethod}
-    PatternMethodTable() = new(PatternMethod[])
-end
+# type PatternMethodTable
+#     methods::Vector{PatternMethod}
+#     PatternMethodTable() = new(PatternMethod[])
+# end
 
-function add(mt::PatternMethodTable, signature, body)
-    push(mt.methods, PatternMethod(signature, body))
-end
+# function add(mt::PatternMethodTable, pattern, body)
+#     push(mt.methods, PatternMethod(pattern, body))
+# end
 
-function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
-    argsname = :args
-    code = {}
-    for m in mt.methods
-        if is(m.dispatch_code, nothing)
-            m.dispatch_code = code_pmethod_dispatch(m, argsname)
-        end
-        push(code, m.dispatch_code)
-    end
+# function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
+#     argsname = :args
+#     code = {}
+#     for m in mt.methods
+#         if is(m.dispatch_code, nothing)
+#             m.dispatch_code = code_pmethod_dispatch(m, argsname)
+#         end
+#         push(code, m.dispatch_code)
+#     end
     
-    push(code, :(
-        error("no dispatch found for", ($fname), typeof($argsname))
-    ))
+#     push(code, :(
+#         error("no dispatch found for", ($fname), typeof($argsname))
+#     ))
 
             
-    quote
-        function ($fname)(args...)
-            println($string(fname))
-            ($code...)
-        end
-    end
-#    expr(:function, :(($fname)(args...)), expr(:block, code))
-end
+#     quote
+#         function ($fname)(args...)
+#             println($string(fname))
+#             ($code...)
+#         end
+#     end
+# #    expr(:function, :(($fname)(args...)), expr(:block, code))
+# end
 
 
 
-macro pattern(ex)
-    code_pattern_function(ex)
-end
-function code_pattern_function(ex)
-end
+# macro pattern(ex)
+#     code_pattern_function(ex)
+# end
+# function code_pattern_function(ex)
+# end
