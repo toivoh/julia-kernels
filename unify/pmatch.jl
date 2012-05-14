@@ -91,7 +91,7 @@ function getvar(c::RPContext, name::Symbol, T)
         @expect isequal(patype(var), T)
         return var
     else
-        var = PVar(T,name)
+        var = PVar(name, T)
         return c.vars[name] = var
     end
 end

@@ -58,23 +58,23 @@ restr{T}(::Type{T}, x) = restr(domain(T), x)
 
 # Pattern variable that only matches values of type <: T
 type PVar{T} <: Pattern{T}
-    dom::Domain{T}
     name::Symbol
+    dom::Domain{T}
 
-    PVar(name::Symbol) = is(T,None) ? nonematch : new(domain(T), name)
+    PVar(name::Symbol) = is(T,None) ? nonematch : new(name, domain(T))
 end
 typealias AnyVar PVar{Any}
 
-PVar(::Domain{None}, name::Symbol) = nonematch
-PVar{T}(::Domain{T}, name::Symbol) = PVar{T}(name)
-PVar{T}(::Type{T},   name::Symbol) = PVar{T}(name)
+PVar(   name::Symbol, ::Domain{None}) = nonematch
+PVar{T}(name::Symbol, ::Domain{T})    = PVar{T}(name)
+PVar{T}(name::Symbol, ::Type{T})      = PVar{T}(name)
 
 
-pvar(T, name::Symbol) = PVar(T, name)
-pvar(name) = pvar(Any, name)
+pvar(name::Symbol, T) = PVar(name, T)
+pvar(name) = pvar(name, Any)
 
 #match(T) = PVar(T, gensym("match_$T"))
-match(T) = PVar(T, gensym())
+match(T) = PVar(gensym(), T)
 
 show(io::IO, V::AnyVar) = print(io, "pvar(:$(V.name))")
 show{T}(io::IO, V::PVar{T}) = print(io, "pvar($T,:$(V.name))")
@@ -95,9 +95,9 @@ function code_pvar(args...)
         if is_expr(arg, doublecolon)
             @expect length(arg.args) == 2
             argname, argtype = arg.args[1], arg.args[2]
-            push(pvarcalls, :(pvar(($argtype), $quoted_expr(argname))))
+            push(pvarcalls, :( pvar($quoted_expr(argname),($argtype)) ))
         else
-            push(pvarcalls, :(pvar($quoted_expr(arg))))
+            push(pvarcalls, :( pvar($quoted_expr(arg)) ))
         end 
         push(argnames, argname::Symbol)
     end
@@ -234,7 +234,7 @@ function unite(s::Subs, P::PVar,X::PVar)
     if P.dom >= X.dom; return unitesubs(s, P,X)
     elseif X.dom >= P.dom; return unitesubs(s, X,P)
     else
-        I = PVar(dintersect(P.dom, X.dom), gensym("pvar"))
+        I = PVar(gensym("pvar"), dintersect(P.dom, X.dom))
         return unite(s, P,unite(s, X,I))
     end
 end

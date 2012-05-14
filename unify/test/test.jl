@@ -7,9 +7,9 @@ let
     @show @pvar X, Y
     
     @show X
-    @show pvar(Int, :Z)
-    @show pvar(Any, :Z)
-    @show pvar(None, :Z)
+    @show pvar(:Z, Int)
+    @show pvar(:Z, Any)
+    @show pvar(:Z, None)
     
     println()
     @show restr(Int, 1)
