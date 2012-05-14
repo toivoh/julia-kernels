@@ -1,6 +1,6 @@
 
 load("utils/req.jl")
-load("unify/unify.jl")
+load("unify/pmatch.jl")
 req("prettyshow/prettyshow.jl")
 
 function show_code_pmatch(p)
@@ -21,5 +21,13 @@ show_code_pmatch(Xi)
 show_code_pmatch((1,X))
 show_code_pmatch((X,X))
 
+println()
+# ex=code_ifmatch(:(let (pvar(:X),1)=(2,1)
+#     print("X = ", X)
+# end))
+# pprintln(ex)
 
+@ifmatch let (pvar(:X), 1)=(2,1)
+    println("X = ", X)
+end
 
