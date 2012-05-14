@@ -36,7 +36,7 @@ abstract Pattern{T}
 type NonePattern <: Pattern{None}; end
 const nonematch = NonePattern()
 
-patype{T}(::Pattern{T}) = T
+pattype{T}(::Pattern{T}) = T
 
 show(io::IO, ::NonePattern) = print(io, "nonematch")
 

@@ -4,6 +4,44 @@ req("utils/utils.jl")
 req("unify/unify.jl")
 
 
+# -- recode_pattern -----------------------------------------------------------
+
+type RPContext
+    vars::Dict{Symbol,PVar}
+    unmatchable::Bool # todo: use!
+
+    RPContext() = new(Dict{Symbol,PVar}(), false)
+end
+
+getvar(c::RPContext, name::Symbol) = getvar(c, name, Any)
+function getvar(c::RPContext, name::Symbol, T)
+    if has(c.vars, name)
+        var = c.vars[name]
+        @expect isequal(pattype(var), T)
+        return var
+    else
+        var = PVar(name, T)
+        return c.vars[name] = var
+    end
+end
+
+function recode_pattern(c::RPContext, ex::Expr)
+    head, args = ex.head, ex.args
+    nargs = length(args)
+    if head == doublecolon
+        @expect nargs==2
+        return quoted_expr(getvar(c, args[1], args[2]))
+    elseif contains([:call, :ref, :curly], head)
+        return expr(head, args[1], 
+                    {recode_pattern(c,arg) for arg in ex.args[2:end]}...)
+    else
+        return expr(head, {recode_pattern(c,arg) for arg in ex.args})
+    end
+end
+recode_pattern(c::RPContext, sym::Symbol) = quoted_expr(getvar(c, sym))
+recode_pattern(c::RPContext, ex) = ex # other terminals
+
+
 # -- code_pmatch --------------------------------------------------------------
 
 type PVarEntry
@@ -14,7 +52,17 @@ end
 type PMContext
     vars::Dict{PVar, PVarEntry}
     code::Vector
+
     PMContext() = new(Dict{PVar, PVarEntry}(), {})
+end
+
+PMContext(rpc::RPContext) = PMContext(rpc.vars)
+function PMContext(vars::Dict)
+    c = PMContext()
+    for (name::Symbol, p::PVar) in vars
+        c.vars[p] = PVarEntry(name)
+    end
+    c
 end
 
 emit(c::PMContext, ex) = (push(c.code,ex); nothing)
@@ -22,13 +70,11 @@ emit(c::PMContext, ex) = (push(c.code,ex); nothing)
 function get_entry(c::PMContext, p::PVar)
     if !has(c.vars, p)
 #        c.vars[p] = PVarEntry(gensym(string(p.name)))
-        c.vars[p] = PVarEntry(p.name)
+#        c.vars[p] = PVarEntry(p.name)
+        error("code_pmatch: undefined PVar p = ", p)
     end
     entry = c.vars[p]
 end
-
-
-code_pmatch(p,xname::Symbol) = (c=PMContext(); code_pmatch(c, p,xname); c)
 
 
 function code_iffalse_retfalse(pred)
@@ -76,41 +122,6 @@ function code_pmatch(c::PMContext, ps::Vector,xname::Symbol)
 end
 
 
-# -- recode_pattern -----------------------------------------------------------
-
-type RPContext
-    vars::Dict{Symbol,PVar}
-    unmatchable::Bool
-    RPContext() = new(Dict{Symbol,PVar}(), false)
-end
-
-
-function getvar(c::RPContext, name::Symbol, T)
-    if has(c.vars, name)
-        var = c.vars[name]
-        @expect isequal(patype(var), T)
-        return var
-    else
-        var = PVar(name, T)
-        return c.vars[name] = var
-    end
-end
-
-function recode_pattern(c::RPContext, ex::Expr)
-    head, args = ex.head, ex.args
-    nargs = length(args)
-    if head == doublecolon
-        @expect nargs==2
-        return getvar(c, args[1], args[2])
-    else
-        return expr(head, map(ex->recode_pattern(c,ex), args))
-    end
-end
-recode_pattern(c::RPContext, sym::Symbol) = getvar(c, sym)
-recode_pattern(c::RPContext, ex) = ex # other terminals
-
-
-
 # -- @ifmatch -----------------------------------------------------------------
 
 macro ifmatch(ex)
@@ -126,21 +137,24 @@ function code_ifmatch(ex)
     @expect is_expr(match, :(=), 2)
     pattern, valex = match.args[1], match.args[2]
     valname = gensym("value")
-    c=PMContext()
-
+    
+    rpc = RPContext()
+    pattern = recode_pattern(rpc, pattern)
     pattern = eval(pattern)
-    code_pmatch(c, pattern,valname)
-    push(c.code, :true)
-#    foreach(pprintln, c.code)
 
-    varnames = {kv[2].name for kv in c.vars}
+    pmc=PMContext(rpc)
+    code_pmatch(pmc, pattern,valname)
+    push(pmc.code, :true)
+#    foreach(pprintln, pmc.code)
+
+    varnames = {kv[2].name for kv in pmc.vars}
     pmatch
 
     quote
         let ($valname)=($valex)
             local ($varnames)
             if let
-                ($c.code...)
+                ($pmc.code...)
             end
                 ($body)
             end
