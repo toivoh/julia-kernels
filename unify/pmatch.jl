@@ -4,6 +4,10 @@ req("utils/utils.jl")
 req("unify/unify.jl")
 
 
+type RuntimeValue <: Pattern{Any}
+    name::Symbol
+end
+
 # -- recode_pattern -----------------------------------------------------------
 
 type RPContext
@@ -32,8 +36,13 @@ function recode_pattern(c::RPContext, ex::Expr)
         @expect nargs==2
         return quoted_expr(getvar(c, args[1], args[2]))
     elseif contains([:call, :ref, :curly], head)
-        return expr(head, args[1], 
-                    {recode_pattern(c,arg) for arg in ex.args[2:end]}...)
+        if (head==:call) && (args[1]==:value)
+            @expect nargs==2
+            return quoted_expr(RuntimeValue(args[2]))
+        else
+            return expr(head, args[1], 
+                        {recode_pattern(c,arg) for arg in ex.args[2:end]}...)
+        end
     else
         return expr(head, {recode_pattern(c,arg) for arg in ex.args})
     end
@@ -98,6 +107,9 @@ function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
         ))
         entry.isassigned = true
     end
+end
+function code_pmatch(c::PMContext, p::RuntimeValue,xname::Symbol)
+    emit(c, code_iffalse_retfalse(:( isequal(($p.name),($xname)) )))
 end
 function code_pmatch(c::PMContext, p,xname::Symbol)
     @assert isatom(p)

@@ -41,5 +41,11 @@ end
 
 
 c = RPContext()
-@showln pattern = recode_pattern(c, :(X,1,X))
+@showln pattern = recode_pattern(c, :(X,1,value(X),X))
 
+
+for k=1:4
+    @ifmatch let (X,value(k))=(1,2)
+        println("X=$X, k=$k")
+    end
+end
