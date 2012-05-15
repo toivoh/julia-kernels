@@ -41,8 +41,14 @@ pattype{T}(::Pattern{T}) = T
 show(io::IO, ::NonePattern) = print(io, "nonematch")
 
 
-isatom(::Pattern) = false
-isatom(::Any)     = true
+isatomtype{T<:Pattern}(::Type{T}) = false
+isatomtype{T<:Tuple}(::T)         = false
+#isatomtype{T<:Vector}(::Type{T})  = false
+isatomtype{T<:Vector}(::Type{T})  = isatomtype(eltype(T))
+isatomtype{T}(::Type{T})          = true
+
+isatom(x) = isatomtype(typeof(x))
+
 
 ## restr: domain restriction for non-PVar:s ##
 restr( ::Domain{Any}, ::NonePattern) = nonematch
