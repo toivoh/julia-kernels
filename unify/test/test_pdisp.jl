@@ -52,3 +52,10 @@ if is(fun, nothing)
 end
 g(1)
 
+@pattern ff(1) = 42
+@pattern ff(x) = x
+
+println()
+@show ff(1)
+@show ff(2)
+@show ff(3)

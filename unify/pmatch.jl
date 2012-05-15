@@ -213,7 +213,6 @@ macro patmethod(fdef)
     signature, body = split_fdef(fdef)
     @expect is_expr(signature, :call)
     pattern = quoted_tuple(signature.args[2:end])
-    @show pattern
     m = patmethod(pattern, body)
     quoted_expr(m)
 end

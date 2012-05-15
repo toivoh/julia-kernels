@@ -12,6 +12,10 @@ const doublecolon = @eval (:(::Int)).head
 quoted_expr(ex) = expr(:quote, ex)
 quoted_exprs(exprs) = { quoted_expr(ex) for ex in exprs }
 
+quotevalue(val)     = expr(:quote, val)
+quotevalues(values) = { quotevalue(val) for val in values }
+
+
 quoted_tuple(t) = expr(:tuple, {t...})
 
 is_expr(ex, head::Symbol) = (isa(ex, Expr) && (ex.head == head))
