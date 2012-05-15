@@ -191,6 +191,8 @@ type PatternMethod
     arguments::Dict{Symbol,PVar}
     pattern
     body
+
+    dispfun::Function
    
     PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
 end
@@ -199,9 +201,14 @@ function patmethod(pattern, body)
     rpc = RPContext()
     pattern = recode_pattern(rpc, pattern)
     pattern = eval(pattern)
-    PatternMethod(rpc.vars, pattern, body)
+    m = PatternMethod(rpc.vars, pattern, body)
+    m.dispfun = create_pmethod_closure(m)
+    m
 end
 
+function create_pmethod_closure(m::PatternMethod)
+    eval(code_pmethod_closure(m))
+end
 function code_pmethod_closure(m::PatternMethod)
     argsname = gensym("args")
 
@@ -227,14 +234,22 @@ function code_pmethod_dispatch(m::PatternMethod, argsname)
     )
 end
 
-# type PatternMethodTable
-#     methods::Vector{PatternMethod}
-#     PatternMethodTable() = new(PatternMethod[])
-# end
+type PatternMethodTable
+    fname::Symbol
+    methods::Vector{PatternMethod}
 
-# function add(mt::PatternMethodTable, pattern, body)
-#     push(mt.methods, PatternMethod(pattern, body))
-# end
+    PatternMethodTable(fname::Symbol) = new(fname, PatternMethod[])
+end
+
+add(mt::PatternMethodTable, m::PatternMethod) = push(mt.methods, m)
+
+function dispatch(mt::PatternMethodTable, args::Tuple)
+    for m in mt.methods
+        matched, result = m.dispfun(args...)
+        if matched;  return result;  end
+    end
+    error("no dispatch found for pattern function $(m.fname)$args")
+end
 
 # function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
 #     argsname = :args

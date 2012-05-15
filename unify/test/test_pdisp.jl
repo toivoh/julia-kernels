@@ -17,3 +17,14 @@ println(c2)
 
 f1 = eval(c1)
 f2 = eval(c2)
+
+mtable = PatternMethodTable(:f)
+add(mtable, patmethod(:(1,), :(42)))
+add(mtable, patmethod(:(x,), :(x)))
+
+f = (args...)->(dispatch(mtable, args))
+
+println()
+@show f(1)
+@show f(2)
+@show f(3)
