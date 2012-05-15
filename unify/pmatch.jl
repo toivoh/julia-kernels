@@ -209,22 +209,27 @@ type PatternMethod
     PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
 end
 
-macro patmethod(fdef)
-    signature, body = split_fdef(fdef)
-    @expect is_expr(signature, :call)
-    pattern = quoted_tuple(signature.args[2:end])
-    m = patmethod(pattern, body)
-    quoted_expr(m)
-end
-
-function patmethod(pattern, body)
-    rpc = RPContext()
-    pattern = recode_pattern(rpc, pattern)
-    pattern = eval(pattern)
-    m = PatternMethod(rpc.vars, pattern, body)
+function patmethod(arguments::Dict{Symbol,PVar}, pattern, body)
+    m = PatternMethod(arguments, pattern, body)
     m.dispfun = create_pmethod_closure(m)
     m
 end
+
+macro patmethod(fdef)
+    signature, body = split_fdef(fdef)
+    @expect is_expr(signature, :call)
+    pattern_ex = quoted_tuple(signature.args[2:end])
+    code_patmethod(pattern_ex, body)
+end
+
+function code_patmethod(pattern_ex, body)
+    rpc = RPContext()
+    pattern_ex = recode_pattern(rpc, pattern_ex)
+
+    # evaluates the pattern expression inline
+    :( patmethod($quotevalue(rpc.vars), ($pattern_ex), ($quotevalue(body))) )
+end
+
 
 function create_pmethod_closure(m::PatternMethod)
     eval(code_pmethod_closure(m))
@@ -280,8 +285,9 @@ end
 function code_pattern_fdef(fdef)
     signature, body = split_fdef(fdef)
     @expect is_expr(signature, :call)
-    pattern = quoted_tuple(signature.args[2:end])
-    method = patmethod(pattern, body)
+    pattern_ex = quoted_tuple(signature.args[2:end])
+#    method = patmethod(pattern, body)
+    method_ex = code_patmethod(pattern_ex, body)
 
     fname = signature.args[1]
     qfname = quoted_expr(fname)
@@ -299,7 +305,7 @@ function code_pattern_fdef(fdef)
         else
             ($mtable) = __patmethod_tables[$fun]
         end
-        add(($mtable), ($quoted_expr(method)))
+        add(($mtable), ($method_ex))
     end
 end
 
