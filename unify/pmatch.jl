@@ -303,6 +303,10 @@ function code_pattern_fdef(fdef)
             const ($fname) = (args...)->dispatch(($mtable), args)
             __patmethod_tables[$fname] = ($mtable)
         else
+            if !(isa(($fun),Function) && has(__patmethod_tables, ($fun)))
+                error("\nin @pattern method definition: ", ($string(fname)), 
+                " is not a pattern function")
+            end
             ($mtable) = __patmethod_tables[$fun]
         end
         add(($mtable), ($method_ex))

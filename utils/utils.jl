@@ -47,6 +47,23 @@ macro expect(args...)
 end
 
 
+# == @assert_fails ============================================================
+
+macro assert_fails(ex)
+    @gensym err
+    quote
+        ($err) = nothing
+        try
+            ($ex)
+            error("Didn't fail: ", ($quotevalue(ex)) )
+        catch err
+            ($err) = err
+        end
+        ($err)
+    end
+end
+
+
 # == @setdefault ==============================================================
 
 # macro setdefault(args...)

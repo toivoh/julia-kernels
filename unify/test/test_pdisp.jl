@@ -4,8 +4,6 @@ load("unify/pmatch.jl")
 req("prettyshow/prettyshow.jl")
 
 mtable = PatternMethodTable(:f)
-#add(mtable, patmethod(:(1,), :(42)))
-#add(mtable, patmethod(:(x,), :(x)))
 add(mtable, (@patmethod f(1) = 42))
 add(mtable, (@patmethod f(x) = x))
 
@@ -23,3 +21,15 @@ println()
 @show ff(1)
 @show ff(2)
 @show ff(3)
+
+
+println("(g=1;@pattern g(x)=1) throws: ", @assert_fails begin
+    g = 1
+    @pattern g(x)=1
+end)
+
+println("(h(x)=x;@pattern h(x)=1) throws: ", @assert_fails begin
+    h(x)=x
+    @pattern h(x)=1
+end)
+
