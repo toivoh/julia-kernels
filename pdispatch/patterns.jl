@@ -41,12 +41,11 @@ pattype{T}(::Pattern{T}) = T
 show(io::IO, ::NonePattern) = print(io, "nonematch")
 
 
-isatomtype{T<:Pattern}(::Type{T}) = false
-isatomtype{T<:Tuple}(::T)         = false
-#isatomtype{T<:Vector}(::Type{T})  = false
-isatomtype{T<:Vector}(::Type{T})  = isatomtype(eltype(T))
-isatomtype{T}(::Type{T})          = true
+isatomtype(::Tuple) = false
+isatomtype{T,N}(::Type{Array{T,N}}) = isatomtype(T)
+isatomtype(T) = !(T <: Array || Pattern <: T || T <: Pattern)
 
+isatom(x::Tuple) = false
 isatom(x) = isatomtype(typeof(x))
 
 
