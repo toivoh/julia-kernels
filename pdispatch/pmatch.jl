@@ -218,6 +218,11 @@ function unify(x,y)
     (z, s)
 end
 
+pattern_le(x,y) = (s=unify(y,x)[2]; !s.nPgeX)
+pattern_ge(x,y) = (s=unify(x,y)[2]; !s.nPgeX)
+pattern_eq(x,y) = pattern_le(x,y) && pattern_ge(x,y)
+
+
 # Y = unite(s::Subs, P,X):
 # unite the patterns P and X into Y, and update s with the necessary
 # substitutions such that 

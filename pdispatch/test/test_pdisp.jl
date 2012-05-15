@@ -15,8 +15,8 @@ println()
 @show f(2)
 @show f(3)
 
-@pattern ff(1) = 42
 @pattern ff(x) = x
+@pattern ff(1) = 42
 
 println()
 @show ff(0)

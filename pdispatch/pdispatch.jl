@@ -64,7 +64,29 @@ type PatternMethodTable
     PatternMethodTable(fname::Symbol) = new(fname, PatternMethod[])
 end
 
-add(mt::PatternMethodTable, m::PatternMethod) = push(mt.methods, m)
+#add(mt::PatternMethodTable, m::PatternMethod) = push(mt.methods, m)
+function add(mt::PatternMethodTable, m::PatternMethod)    
+    ms = mt.methods
+    n = length(ms)
+    i = n+1
+
+    # todo: add warning if DAG is not a (meet-)semilattice
+    for k=1:n
+        if pattern_le(m.pattern, ms[k].pattern)
+            if pattern_ge(m.pattern, ms[k].pattern)
+                # equal signature ==> replace
+                mt.methods[k] = m
+                return
+            else
+                i = k
+                break
+            end
+        end
+    end
+    mt.methods = PatternMethod[ms[1:i-1]..., m, ms[i:n]...]
+    nothing
+end
+
 
 function dispatch(mt::PatternMethodTable, args::Tuple)
     for m in mt.methods
