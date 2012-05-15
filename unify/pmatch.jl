@@ -100,7 +100,7 @@ function get_entry(c::PMContext, p::PVar)
 end
 
 
-function code_iffalse_retfalse(c::PMContext, pred)
+function code_iffalse_ret(c::PMContext, pred)
     :(if !($pred)
         return ($c.ret_nomatch)
     end)
@@ -111,10 +111,10 @@ code_pmatch(c::PMContext, ::NonePattern,::Symbol) = error("code_pmatch: "*
 function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
     entry = get_entry(c, p)
     if entry.isassigned
-        emit(c, code_iffalse_retfalse(c, :( isequal(($entry.name),($xname))) ))
+        emit(c, code_iffalse_ret(c, :( isequal(($entry.name),($xname))) ))
     else
         if !isuniversal(p.dom)
-            emit(c, code_iffalse_retfalse(c, code_contains(p.dom,xname)))
+            emit(c, code_iffalse_ret(c, code_contains(p.dom,xname)))
         end
         emit(c, :(
             ($entry.name) = ($xname)
@@ -123,15 +123,15 @@ function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
     end
 end
 function code_pmatch(c::PMContext, p::RuntimeValue,xname::Symbol)
-    emit(c, code_iffalse_retfalse(c, :( isequal(($p.name),($xname)) )))
+    emit(c, code_iffalse_ret(c, :( isequal(($p.name),($xname)) )))
 end
 function code_pmatch(c::PMContext, p,xname::Symbol)
     @assert isatom(p)
-    emit(c, code_iffalse_retfalse(c, :( isequal(($quoted_expr(p)),($xname)) )))
+    emit(c, code_iffalse_ret(c, :( isequal(($quoted_expr(p)),($xname)) )))
 end
 function code_pmatch_list(T, c::PMContext, ps,xname::Symbol)
     np = length(ps)
-    emit(c, code_iffalse_retfalse(c,  :(
+    emit(c, code_iffalse_ret(c,  :(
         (isa(($xname),($quoted_expr(T))) && length($xname) == ($np))
     )))
     for k=1:np
