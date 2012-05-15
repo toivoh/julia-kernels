@@ -184,9 +184,8 @@ end
 # Add the constraint V == p to s, and return the new binding pnew for V
 
 function unitesubs(s::Subs, V::PVar,p)
-#    if is(p,V);  return p;  end
     if has(s.dict, V)
-        p0 = s[V]                # look up the refined value of V
+        p0 = s[V]  # look up the refined value of V
         # consider: any other cases when this is not a new constraint?
         # (especially when !s.nPgeX)
         if is(p,V) || isequal(p,p0);  return p0;  end

@@ -21,7 +21,7 @@ let
     
     println()
     @showln    unify(match(Any), match(Any))
-    @symshowln unify(match(Any),     1)
+    @symshowln unify(match(Any),   1)
     @symshowln unify(match(Real),  1)
     @symshowln unify(match(Int),   1)
     @symshowln unify(match(Float), 1)

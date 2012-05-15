@@ -54,7 +54,16 @@ restr( ::Domain{Any}, ::NonePattern) = nonematch
 restr( ::Domain,      ::NonePattern) = nonematch
 restr( ::Domain{Any}, x) = x
 
-restr{T}(::Domain{T}, x) = isa(x, T) ? x : nonematch
+#restr{T}(::Domain{T}, x) = isa(x, T) ? x : nonematch
+restr{T}(::Domain{T}, x::T) = x
+function restr{T}(::Domain{T}, x)
+    try
+        y = convert(T, x)
+        isequal(x,y) ? y : nonematch
+    catch err
+        nonematch
+    end
+end
 
 restr{T}(::Type{T}, x) = restr(domain(T), x)
 
