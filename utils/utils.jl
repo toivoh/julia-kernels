@@ -1,11 +1,4 @@
 
-macro show(ex)
-    :(println(($string(ex)), "\t= ", $ex) )
-end
-macro showln(ex)
-    :(println(($string(ex)), "\n\t=", $ex) )
-end
-
 
 const doublecolon = @eval (:(::Int)).head
 
@@ -44,6 +37,40 @@ macro expect(args...)
     else # no explicit message
         return code_checkexpect(predexpr)
     end    
+end
+
+
+# == @[sym]show[ln] ===========================================================
+
+macro show(ex)
+    :(println(($string(ex)), "\t= ", $ex) )
+end
+macro showln(ex)
+    :(println(($string(ex)), "\n\t=", $ex) )
+end
+
+# todo: pull these two together!
+macro symshow(call)
+    @expect is_expr(call, :call)
+    args = call.args
+    @expect length(args)==3
+    op, x, y = tuple(args...)
+    quote
+        print($string(call))
+        print("\t= ",    ($call))
+        println(",\tsym = ", ($op)($y,$x))
+    end
+end
+macro symshowln(call)
+    @expect is_expr(call, :call)
+    args = call.args
+    @expect length(args)==3
+    op, x, y = tuple(args...)
+    quote
+        println($string(call))
+        println("\t= ",    ($call))
+        println("sym\t= ", ($op)($y,$x))
+    end
 end
 
 
