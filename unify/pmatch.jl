@@ -272,6 +272,39 @@ function dispatch(mt::PatternMethodTable, args::Tuple)
     error("no dispatch found for pattern function $(m.fname)$args")
 end
 
+
+const __patmethod_tables = Dict{Function,PatternMethodTable}()
+
+macro pattern(fdef)
+    code_pattern_fdef(fdef)
+end
+function code_pattern_fdef(fdef)
+    signature, body = split_fdef(fdef)
+    @expect is_expr(signature, :call)
+    pattern = quoted_tuple(signature.args[2:end])
+    method = patmethod(pattern, body)
+
+    fname = signature.args[1]
+    qfname = quoted_expr(fname)
+    @gensym fun mtable
+    quote
+        ($fun) = nothing
+        try
+            ($fun) = ($fname)
+        end
+        if is(($fun), nothing)
+            ($mtable) = PatternMethodTable($qfname)
+#            const ($fname) = create_pattern_function(($mtable))
+            const ($fname) = (args...)->dispatch(($mtable), args)
+            __patmethod_tables[$fname] = ($mtable)
+        else
+            ($mtable) = __patmethod_tables[$fun]
+        end
+        add(($mtable), ($quoted_expr(method)))
+    end
+end
+
+
 # function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
 #     argsname = :args
 #     code = {}

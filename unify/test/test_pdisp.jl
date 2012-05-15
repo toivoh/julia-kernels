@@ -30,3 +30,25 @@ println()
 @show f(1)
 @show f(2)
 @show f(3)
+
+
+# defined = true
+# try
+#     g(1)
+# catch err
+#     defined = false
+# end
+# if !defined
+#     const g = x->x
+# end
+# g(1)
+
+fun = nothing
+try
+    fun = g
+end
+if is(fun, nothing)
+    const g = x->x
+end
+g(1)
+
