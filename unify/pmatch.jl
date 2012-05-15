@@ -4,6 +4,18 @@ req("utils/utils.jl")
 req("unify/unify.jl")
 
 
+function split_fdef(fdef::Expr)
+    @expect (fdef.head == :function) || (fdef.head == :(=))
+    @expect length(fdef.args) == 2
+    signature, body = tuple(fdef.args...)
+    @expect is_expr(signature, :call)
+    @expect length(signature.args) >= 1
+    (signature, body)
+end
+split_fdef(f::Any) = error("split_fdef: expected function definition, got\n$f")
+
+
+
 type RuntimeValue <: Pattern{Any}
     name::Symbol
 end
@@ -195,6 +207,15 @@ type PatternMethod
     dispfun::Function
    
     PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
+end
+
+macro patmethod(fdef)
+    signature, body = split_fdef(fdef)
+    @expect is_expr(signature, :call)
+    pattern = quoted_tuple(signature.args[2:end])
+    @show pattern
+    m = patmethod(pattern, body)
+    quoted_expr(m)
 end
 
 function patmethod(pattern, body)

@@ -19,8 +19,10 @@ f1 = eval(c1)
 f2 = eval(c2)
 
 mtable = PatternMethodTable(:f)
-add(mtable, patmethod(:(1,), :(42)))
-add(mtable, patmethod(:(x,), :(x)))
+#add(mtable, patmethod(:(1,), :(42)))
+#add(mtable, patmethod(:(x,), :(x)))
+add(mtable, (@patmethod f(1) = 42))
+add(mtable, (@patmethod f(x) = x))
 
 f = (args...)->(dispatch(mtable, args))
 
