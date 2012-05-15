@@ -197,7 +197,7 @@ function code_ifmatch_let(pattern, valex, body)
 end
 
 
-# -- @pattern -----------------------------------------------------------------
+# -- @patmethod ---------------------------------------------------------------
 
 type PatternMethod
     arguments::Dict{Symbol,PVar}
@@ -208,28 +208,6 @@ type PatternMethod
    
     PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
 end
-
-function patmethod(arguments::Dict{Symbol,PVar}, pattern, body)
-    m = PatternMethod(arguments, pattern, body)
-    m.dispfun = create_pmethod_closure(m)
-    m
-end
-
-macro patmethod(fdef)
-    signature, body = split_fdef(fdef)
-    @expect is_expr(signature, :call)
-    pattern_ex = quoted_tuple(signature.args[2:end])
-    code_patmethod(pattern_ex, body)
-end
-
-function code_patmethod(pattern_ex, body)
-    rpc = RPContext()
-    pattern_ex = recode_pattern(rpc, pattern_ex)
-
-    # evaluates the pattern expression inline
-    :( patmethod($quotevalue(rpc.vars), ($pattern_ex), ($quotevalue(body))) )
-end
-
 
 function create_pmethod_closure(m::PatternMethod)
     eval(code_pmethod_closure(m))
@@ -246,18 +224,30 @@ function code_pmethod_closure(m::PatternMethod)
     end))
 end
 
-function code_pmethod_dispatch(m::PatternMethod, argsname)
-    @gensym result
-    :(
-        local (${result});
-        if ($code_ifmatch_let(m.pattern, argsname, :( ($result)=($m.body) )))
-#        if @ifmatch let ($m.pattern)=($argsname)
-#             ($result)=($m.body)
-#         end
-            return ($result)
-        end 
-    )
+function patmethod(arguments::Dict{Symbol,PVar}, pattern, body)
+    m = PatternMethod(arguments, pattern, body)
+    m.dispfun = create_pmethod_closure(m)
+    m
 end
+
+
+function code_patmethod(pattern_ex, body)
+    rpc = RPContext()
+    pattern_ex = recode_pattern(rpc, pattern_ex)
+
+    # evaluates the pattern expression inline
+    :( patmethod($quotevalue(rpc.vars), ($pattern_ex), ($quotevalue(body))) )
+end
+macro patmethod(fdef)
+    signature, body = split_fdef(fdef)
+    @expect is_expr(signature, :call)
+    pattern_ex = quoted_tuple(signature.args[2:end])
+
+    code_patmethod(pattern_ex, body)
+end
+
+
+# -- @pattern -----------------------------------------------------------------
 
 type PatternMethodTable
     fname::Symbol
@@ -312,36 +302,3 @@ function code_pattern_fdef(fdef)
         add(($mtable), ($method_ex))
     end
 end
-
-
-# function code_pattern_dispatch(mt::PatternMethodTable, fname::Symbol)
-#     argsname = :args
-#     code = {}
-#     for m in mt.methods
-#         if is(m.dispatch_code, nothing)
-#             m.dispatch_code = code_pmethod_dispatch(m, argsname)
-#         end
-#         push(code, m.dispatch_code)
-#     end
-    
-#     push(code, :(
-#         error("no dispatch found for", ($fname), typeof($argsname))
-#     ))
-
-            
-#     quote
-#         function ($fname)(args...)
-#             println($string(fname))
-#             ($code...)
-#         end
-#     end
-# #    expr(:function, :(($fname)(args...)), expr(:block, code))
-# end
-
-
-
-# macro pattern(ex)
-#     code_pattern_function(ex)
-# end
-# function code_pattern_function(ex)
-# end
