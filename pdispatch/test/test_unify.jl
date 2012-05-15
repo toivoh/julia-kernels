@@ -28,7 +28,7 @@ let
     @symshowln unify(nonematch,    1)
     
     println()
-    @show      unify(match(Real),  match(Real))
+    @showln    unify(match(Real),  match(Real))
     @symshowln unify(match(Real),  match(Int))
     @symshowln unify(match(Float), match(Int))
     

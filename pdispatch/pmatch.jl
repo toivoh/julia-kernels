@@ -9,16 +9,17 @@ req("pdispatch/meta.jl")
 # -- PMContext ----------------------------------------------------------------
 
 type PVarEntry
-    name::Symbol
-    isassigned::Bool
+    name::Symbol  # name of the variable to hold the value bound to the pvar
+    isassigned::Bool # has a value been bound to name yet?
+
     PVarEntry(name::Symbol) = new(name, false)
 end
 type PMContext
-    vars::Dict{PVar, PVarEntry}
-    ret_nomatch
-    code::Vector
+    vars::Dict{PVar, PVarEntry}  # pvars => match variables
+    nomatch_ex    # expr to be returned if match fails
+    code::Vector  # generated exprs
 
-    PMContext(ret_nomatch) = new(Dict{PVar, PVarEntry}(), ret_nomatch, {})
+    PMContext(nomatch_ex) = new(Dict{PVar, PVarEntry}(), nomatch_ex, {})
     PMContext() = PMContext(:false)
 end
 
@@ -47,12 +48,13 @@ end
 
 function code_iffalse_ret(c::PMContext, pred)
     :(if !($pred)
-        return ($c.ret_nomatch)
+        return ($c.nomatch_ex)
     end)
 end
 
-code_pmatch(c::PMContext, ::NonePattern,::Symbol) = error("code_pmatch: "*
-                                                  "pattern never matches")
+function code_pmatch(c::PMContext, ::NonePattern,::Symbol) 
+    error("code_pmatch: pattern never matches")
+end
 function code_pmatch(c::PMContext, p::PVar,xname::Symbol)
     entry = get_entry(c, p)
     if entry.isassigned
@@ -112,45 +114,51 @@ end
 
 # A substitution from pattern variables to patterns/values
 type Subs
-    dict::Dict{PVar,Any}
-    overdet::Bool
+    dict::Dict{PVar,Any}  # substitions p::PVar => dict[p]
+    nPgeX::Bool           # true if unite(s, P,X) has disproved that P >= X
+    overdet::Bool         # true if no feasible substitution exists
 
-    Subs() = new(Dict{PVar,Any}(), false)
+    Subs() = new(Dict{PVar,Any}(), false, false)
 end
+nge!(s::Subs) = (s.nPgeX = true; s)
 
 function show(io::IO,s::Subs) 
-    print(io, s.overdet ? "Nosubs()" : "Subs($(s.dict))")
+    ge = s.nPgeX ? "  " : ">="
+    print(io, s.overdet ? "Nosubs($ge)" : "Subs($ge, $(s.dict))")
 end
 
 type Unfinished; end             
 # Value of an unfinished computation. Used to detect cyclic dependencies.
 const unfinished = Unfinished()
 
+# rewrite all substitutions in s to depend only on free PVar:s
 function unwind!(s::Subs)
     keys = [entry[1] for entry in s.dict]
     foreach(key->(s[key]), keys)
 end
 
-
+# s[p]:  apply the substitution s to the pattern p
 function ref(s::Subs, V::PVar)
     if s.overdet;  return nonematch;  end
     if has(s.dict, V)
-        v = s.dict[V]
-        if is(v, unfinished)
+        p = s.dict[V]
+        if is(p, unfinished)
             # circular dependency ==> no finite pattern matches
             s.overdet = true
             return s.dict[V] = nonematch
-        elseif isatom(v)
-            return v
+        elseif isatom(p)
+            return p  # atoms can't be further substituted
         else
+            # apply any relevant substitutions in s to p
             s.dict[V] = unfinished  # mark unfinished to avoid infinite loops
-            v = s[v]                # look up recursively
-            return s.dict[V] = v    # store new value
+            p = s[p]                # look up recursively
+            return s.dict[V] = p    # store new value and return
         end
     else
-        return V  # no value stored ==> return V itself
+        return V  # free PVar ==> return V itself
     end
 end
+# substitution on each item in a list
 function ref_list{T}(::Type{T}, s::Subs, xs)
     n = length(xs)
     ys = Array(T, n)
@@ -160,27 +168,34 @@ function ref_list{T}(::Type{T}, s::Subs, xs)
     end
     ys
 end
-ref{T}(s::Subs, xs::Vector{T}) = ref_list(T, s, xs)
-#ref(s::Subs, xs::Tuple) = ((@retnone ys=ref_list(T, s, xs)); tuple(ys))
+ref{T}(s::Subs, xs::Vector{T}) = (isatomtype(T) ? xs : ref_list(T, s, xs))
 function ref(s::Subs, xs::Tuple)
     @retnone ys=ref_list(Any, s, xs)
     tuple(ys)
 end
-ref(s::Subs, x) = x  # return atoms unchanged
+function ref(s::Subs, x)
+    @assert isatom(x)
+    x  # return atoms unchanged
+end
 
 
 # Y = unitesubs(s::Subs, V::PVar,X)
 # ------------------------------------
-# Add the constraint V == X to s, and return the new binding Y for V
+# Add the constraint V == p to s, and return the new binding pnew for V
 
-function unitesubs(s::Subs, V::PVar,X)
-    if is(X,V);  return X;  end
+function unitesubs(s::Subs, V::PVar,p)
+#    if is(p,V);  return p;  end
     if has(s.dict, V)
-        v = s[V]
-        Y = unite(s, v,X)     # unite the new value with the old
-        return s.dict[V] = Y  # store the result and return
+        p0 = s[V]                # look up the refined value of V
+        # consider: any other cases when this is not a new constraint?
+        # (especially when !s.nPgeX)
+        if is(p,V) || isequal(p,p0);  return p0;  end
+        # !s.nPgeX ==> this introduces constraints on rhs
+        #          ==> s.nPgeX = true
+        pnew = unite(nge!(s), p0,p)    # unite the new value with the old
+        return s.dict[V] = pnew        # store the result and return
     else
-        s.dict[V] = X
+        s.dict[V] = p  # no old binding: store and return the new one
     end
 end
 
@@ -193,8 +208,11 @@ function unify(x,y)
     s = Subs()
     z = unite(s, x,y)
     if is(z, nonematch)
+        # todo: move this into Subs/unite/check if it's already there
         s.overdet = true
+        s.nPgeX = !is(y,nonematch)
     else        
+        # make sure all available substitutions have been applied
         unwind!(s)
         z = s[z]
     end
@@ -209,19 +227,21 @@ end
 #
 # If P dominates X, then Y == X
 
-unite(s::Subs, ::NonePattern,X) = nonematch
+# might show !(P >= X); unify will take care of it
+unite(s::Subs, ::NonePattern,X) = nonematch  
+
 function unite(s::Subs, P::PVar,X::PVar)
     if is(X,P); return X; end
     if P.dom >= X.dom; return unitesubs(s, P,X)
-    elseif X.dom >= P.dom; return unitesubs(s, X,P)
+    elseif X.dom >= P.dom; return unitesubs(nge!(s), X,P)   # ==> !(P >= X)
     else
-        I = PVar(gensym("pvar"), dintersect(P.dom, X.dom))
-        return unite(s, P,unite(s, X,I))
+        I = PVar(gensym("pvar"), dintersect(P.dom, X.dom))  # ==> !(P >= X)
+        return unite(s, P,unite(nge!(s), X,I))
     end
 end
 unite(s::Subs, P::PVar,X) = unitesubs(s, P,restr(P.dom, X))
 function unite(s::Subs, P,X) 
-    if isa(X, Pattern); unite(s, X,P)                 # disproves that X <= P
+    if isa(X, Pattern); unite(nge!(s), X, P)          # ==> !(P >= X)
     else;               isequal(P,X) ? X : nonematch  # for atoms
     end
 end
@@ -229,19 +249,12 @@ end
 
 # -- tuple unification --------------------------------------------------------
 
-isatom(::Tuple) = false
-isatom(::Vector) = false
-
 function unite_list{T}(::Type{T}, s::Subs, ps, xs)
     np, nx = length(ps), length(xs)
     if np!=nx; return nonematch; end
     ys = Array(T, np)
     for k=1:np
         @retnone y = unite(s, ps[k], xs[k])
-#         println()
-#         @show y = unite(s, ps[k], xs[k])
-#         @show s
-#         @retnone y 
         ys[k] = y
     end
     ys
