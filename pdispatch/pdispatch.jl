@@ -68,9 +68,9 @@ end
 function add(mt::PatternMethodTable, m::PatternMethod)    
     ms = mt.methods
     n = length(ms)
-    i = n+1
 
-    # todo: add warning if DAG is not a (meet-)semilattice
+    # insert the pattern in ascending topological order, as late as possible
+    i = n+1
     for k=1:n
         if pattern_le(m.pattern, ms[k].pattern)
             if pattern_ge(m.pattern, ms[k].pattern)
@@ -83,6 +83,20 @@ function add(mt::PatternMethodTable, m::PatternMethod)
             end
         end
     end
+
+    # warn if new signature is ambiguous with an old one
+    for m0 in ms
+        lb, s = unify(m0.pattern, m.pattern)
+        if !(is(lb,nonematch) || any({pattern_eq(lb,mk.pattern) for mk in ms}))
+            # todo: 
+            #   o disambiguate pvars in lb (might have same name)
+            #   o print x::Int instead of pvar(x,Int)?    
+            println("Warning: New @pattern method ", mt.fname, m.pattern)
+            println("         is ambiguous with   ", mt.fname, m0.pattern)
+            println("         Make sure ", mt.fname, lb, " is defined first")
+        end
+    end
+
     mt.methods = PatternMethod[ms[1:i-1]..., m, ms[i:n]...]
     nothing
 end
