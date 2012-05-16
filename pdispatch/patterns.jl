@@ -98,7 +98,7 @@ pvar(name) = pvar(name, Any)
 match(T) = PVar(gensym(), T)
 
 show(io::IO, V::AnyVar) = print(io, "pvar(:$(V.name))")
-show{T}(io::IO, V::PVar{T}) = print(io, "pvar($T,:$(V.name))")
+show{T}(io::IO, V::PVar{T}) = print(io, "pvar(:$(V.name),$T)")
 
 # usage: @pvar X Y   ==> X, Y = pvar((:X, :Y))
 macro pvar(args...)

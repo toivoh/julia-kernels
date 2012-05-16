@@ -174,7 +174,7 @@ end
 ref{T}(s::Subs, xs::Vector{T}) = (isatomtype(T) ? xs : ref_list(T, s, xs))
 function ref(s::Subs, xs::Tuple)
     @retnone ys=ref_list(Any, s, xs)
-    tuple(ys)
+    tuple(ys...)
 end
 function ref(s::Subs, x)
     @assert isatom(x)
@@ -270,5 +270,5 @@ end
 unite{T}(s::Subs, ps::Vector,xs::Vector{T}) = unite_list(T, s, ps,xs)
 function unite(s::Subs, ps::Tuple,xs::Tuple) 
     @retnone ys=unite_list(Any, s, ps,xs)
-    tuple(ys)
+    tuple(ys...)
 end
