@@ -8,23 +8,26 @@ load("pdispatch/ifmatch.jl")
 
 
 pshow(io::PrettyIO, t::Tuple) = pshow_comma_list(io, {t...}, "\n(", ")")
+pshow(io::PrettyIO, v::Vector) = pshow_comma_list(io, {v...}, "\n{", "}")
 
-callnode(args...) = tuple(:call, args...)
-refnode(args...) = tuple(:ref, args...)
-inputnode(arg) = tuple(:input, arg)
-scatternode(arg) = tuple(:scatter, arg)
+callnode(args...) = {:call, args...}
+refnode(args...) = {:ref, args...}
+inputnode(arg) = {:input, arg}
+scatternode(arg) = {:scatter, arg}
 
 @pattern scprop(scatternode(s)) = propsc(s)
-@pattern function scprop(node::Tuple) 
-    tuple(node[1:2]..., {scprop(arg) for arg in node[3:end]}...)
+@pattern function scprop(node::Vector) 
+    {node[1:2]..., {scprop(arg) for arg in node[3:end]}...}
 end
 
 @pattern function propsc(callnode(op, arg1, arg2))
+    opmap = {:.+ => :+, :.- => :-, :.* => :*, :./ => :/ }
+    op = get(opmap, op, op) 
     callnode(op, propsc(arg1), propsc(arg2))
 end
 @pattern propsc(inputnode(name)) = refnode(inputnode(name), :(...))
-@pattern function propsc(node:Tuple)
-    tuple(node[1], {scatterprop(scatter(arg)) for arg in node[2:end]}...)
+@pattern function propsc(node::Vector)
+    {node[1], {scatterprop(scatter(arg)) for arg in node[2:end]}...}
 end
 
 
@@ -35,7 +38,6 @@ A, B, C = map(inputnode, (:A,:B,:C))
 AB = callnode(:(.*), A, B)
 X = callnode(:(.+), AB, C)
 
-pprintln(X)
  
 
 for node in {A, B, C, AB, X}
@@ -51,6 +53,8 @@ end
 
 
 
-pprintln()
+println()
 spex = scprop(scatternode(X))
-pprintln(spex)
+pshow(X)
+println()
+pshow(spex)
