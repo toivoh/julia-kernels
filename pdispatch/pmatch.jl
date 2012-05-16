@@ -1,7 +1,19 @@
 
 load("utils/req.jl")
 req("utils/utils.jl")
-req("pdispatch/meta.jl")
+#req("pdispatch/meta.jl")
+req("pdispatch/patterns.jl")
+
+
+function split_fdef(fdef::Expr)
+    @expect (fdef.head == :function) || (fdef.head == :(=))
+    @expect length(fdef.args) == 2
+    signature, body = tuple(fdef.args...)
+    @expect is_expr(signature, :call)
+    @expect length(signature.args) >= 1
+    (signature, body)
+end
+split_fdef(f::Any) = error("split_fdef: expected function definition, got\n$f")
 
 
 # == code_pmatch ==============================================================
@@ -23,22 +35,13 @@ type PMContext
     PMContext() = PMContext(:false)
 end
 
-PMContext(rpc::RPContext, args...) = PMContext(rpc.vars, args...)
-function PMContext(vars::Dict, args...)
-    c = PMContext(args...)
-    for (name::Symbol, p::PVar) in vars
-        c.vars[p] = PVarEntry(name)
-    end
-    c
-end
-
 emit(c::PMContext, ex) = (push(c.code,ex); nothing)
 
 function get_entry(c::PMContext, p::PVar)
     if !has(c.vars, p)
 #        c.vars[p] = PVarEntry(gensym(string(p.name)))
-#        c.vars[p] = PVarEntry(p.name)
-        error("code_pmatch: undefined PVar p = ", p)
+        c.vars[p] = PVarEntry(p.name)
+#        error("code_pmatch: undefined PVar p = ", p)
     end
     entry = c.vars[p]
 end

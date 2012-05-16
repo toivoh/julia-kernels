@@ -2,19 +2,20 @@
 
 load("utils/req.jl")
 req("utils/utils.jl")
+req("pdispatch/meta.jl")
 req("pdispatch/pmatch.jl")
 
 
 # -- @patmethod ---------------------------------------------------------------
 
 type PatternMethod
-    arguments::Dict{Symbol,PVar}
     pattern
     body
 
     dispfun::Function
+#    arguments::Dict{Symbol,PVar}
    
-    PatternMethod(arguments, pattern, body) = new(arguments, pattern, body)
+    PatternMethod(pattern, body) = new(pattern, body)
 end
 
 function create_pmethod_closure(m::PatternMethod)
@@ -23,7 +24,7 @@ end
 function code_pmethod_closure(m::PatternMethod)
     argsname = gensym("args")
 
-    pmc=PMContext(m.arguments, :(false,nothing))
+    pmc=PMContext(:(false,nothing))
     code_pmatch(pmc, m.pattern,argsname)
     push(pmc.code, :(true, ($m.body)))
 
@@ -32,19 +33,18 @@ function code_pmethod_closure(m::PatternMethod)
     end))
 end
 
-function patmethod(arguments::Dict{Symbol,PVar}, pattern, body)
-    m = PatternMethod(arguments, pattern, body)
+function patmethod(pattern, body)
+    m = PatternMethod(pattern, body)
     m.dispfun = create_pmethod_closure(m)
     m
 end
 
 
 function code_patmethod(pattern_ex, body)
-    rpc = RPContext()
-    pattern_ex = recode_pattern(rpc, pattern_ex)
+     pattern_ex = recode_pattern(pattern_ex)
 
     # evaluates the pattern expression inline
-    :( patmethod($quotevalue(rpc.vars), ($pattern_ex), ($quotevalue(body))) )
+    :( patmethod(($pattern_ex), ($quotevalue(body))) )
 end
 macro patmethod(fdef)
     signature, body = split_fdef(fdef)

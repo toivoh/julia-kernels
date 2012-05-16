@@ -26,11 +26,10 @@ end
 function code_ifmatch_let(pattern, valex, body)
     valname = gensym("value")
     
-    rpc = RPContext()
-    pattern = recode_pattern(rpc, pattern)
+    pattern = recode_pattern(pattern)
     pattern = eval(pattern)
 
-    pmc=PMContext(rpc)
+    pmc=PMContext()
     code_pmatch(pmc, pattern,valname)
     push(pmc.code, :true)
 #    foreach(pprintln, pmc.code)
