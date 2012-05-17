@@ -11,9 +11,9 @@ pshow(io::PrettyIO, t::Tuple) = pshow_comma_list(io, {t...}, "\n(", ")")
 pshow(io::PrettyIO, v::Vector) = pshow_comma_list(io, {v...}, "\n{", "}")
 
 callnode(args...) = {:call, args...}
-refnode(args...) = {:ref, args...}
-inputnode(arg) = {:input, arg}
-scatternode(arg) = {:scatter, arg}
+refnode(args...)  = {:ref, args...}
+inputnode(arg)    = {:input, arg}
+scatternode(arg)  = {:scatter, arg}
 
 @pattern scprop(scatternode(s)) = propsc(s)
 @pattern function scprop(node::Vector) 
